@@ -25,6 +25,7 @@
         '</div>' +
         '<div class="module-head__actions">' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
+          '<button type="button" class="btn btn--secondary btn--sm" data-action="sync-staging">' + ui.ICONS.refresh + ' Tarik Order Sales</button>' +
           '<button type="button" class="btn btn--primary btn--sm" data-action="picking">Buat Picking Order</button>' +
         '</div>' +
       '</div>' +
@@ -658,6 +659,29 @@
     });
 
     root.querySelector('[data-action="picking"]').addEventListener('click', openPicking);
+
+    root.querySelector('[data-action="sync-staging"]').addEventListener('click', async function (event) {
+      var button = event.currentTarget;
+      if (button.disabled) return;
+      ui.setBusy(button, true, 'Menarik order…');
+      try {
+        var result = await WMS.api.request('OUTBOUND_SYNC_STAGING');
+        var count = Number(result && result.syncedCount) || 0;
+        ui.toast(
+          'Berhasil menarik ' + count + ' order baru dari Staging' +
+            (result && result.skippedCount ? ' (' + result.skippedCount + ' baris dilewati).' : '.'),
+          'success',
+          'Sinkronisasi selesai'
+        );
+        await load({ silent: false });
+      } catch (error) {
+        if (!WMS.api.isAuthError(error)) {
+          ui.toast((error && error.message) || 'Gagal menarik order dari Staging.', 'danger');
+        }
+      } finally {
+        ui.setBusy(button, false);
+      }
+    });
 
     var tbody = root.querySelector('#outbound-body');
     tbody.addEventListener('click', function (event) {
