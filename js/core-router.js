@@ -919,7 +919,7 @@
   function bindShell() {
     document.querySelectorAll('.sidebar__nav [data-module]').forEach(function (button) {
       button.addEventListener('click', function () {
-        var id = button.getAttribute('data-module');
+        var id = button.getAttribute('data-module') || button.getAttribute('data-tab');
         if (!WMS.auth.getSession()) {
           WMS.auth.showLogin('');
           return;
@@ -956,6 +956,8 @@
       }
       if (state.modules[id] && canAccess(state.modules[id]) && WMS.auth.getSession()) {
         activate(id, { silent: true });
+      } else if (id && WMS.auth && WMS.auth.getSession()) {
+        global.history.replaceState(null, '', '#' + (state.activeModule || 'inbound'));
       }
     });
 

@@ -142,6 +142,18 @@
       el.setAttribute('aria-hidden', allowed ? 'false' : 'true');
     });
 
+    // Keep the users tab available to supervisors; role visibility must not
+    // disable its button or alter pointer handling.
+    var usersTab = document.querySelector('.sidebar__nav [data-module="users"]');
+    if (usersTab) {
+      var canManageUsers = role === 'SUPERVISOR';
+      usersTab.hidden = !canManageUsers;
+      usersTab.disabled = false;
+      usersTab.removeAttribute('disabled');
+      usersTab.setAttribute('aria-hidden', canManageUsers ? 'false' : 'true');
+      usersTab.style.removeProperty('pointer-events');
+    }
+
     WMS.session = session;
   }
 
@@ -157,6 +169,12 @@
     document.querySelectorAll('[data-requires-role]').forEach(function (el) {
       el.hidden = true;
     });
+    var usersTab = document.querySelector('.sidebar__nav [data-module="users"]');
+    if (usersTab) {
+      usersTab.disabled = false;
+      usersTab.removeAttribute('disabled');
+      usersTab.style.removeProperty('pointer-events');
+    }
   }
 
   async function sha256Hex(text) {
