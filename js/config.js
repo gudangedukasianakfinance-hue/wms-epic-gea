@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var API_URL = 'https://script.google.com/macros/library/d/1lod-qy8UM1yhiL2HxOoHyKGBxr1z8pQnqVRdL2Y6RDXQ5ujoVTZ_g8ln/1';
+  var API_URL = 'https://script.google.com/macros/s/AKfycbznLUopfEd6ava4S7mqg6sh4p50TjqErEjG_7zjGmvP17nUaIR4Vd8NLbBbALDpU-hB/exec';
   var MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
   var MASTER_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 jam
 
