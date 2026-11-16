@@ -1,0 +1,19 @@
+/* ==========================================================================
+   theme-epic.css — CV EPIC
+   Palet: Corporate Blue / Navy
+   ========================================================================== */
+
+:root {
+  --primary-color: #1e3a8a;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --sidebar-bg: #172554;
+  --badge-accent: #dbeafe;
+}
+
+/* Aksen pratinjau untuk portal (index.html) */
+.portal-card--epic {
+  --card-accent: #1e3a8a;
+  --card-accent-soft: #eff6ff;
+  --card-deep: #172554;
+}

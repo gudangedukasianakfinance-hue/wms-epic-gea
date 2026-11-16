@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="WMS Terpadu Gudang PT GEA — Inbound, Outbound, Inventory & Transfer, Stock Opname.">
+  <meta name="theme-color" content="#022C22">
+  <title>Gudang PT GEA · WMS Terpadu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/theme-gea.css">
+  <script>
+    /* Fallback aman sebelum file PNG logo diunggah. */
+    window.wmsLogoSvgFallback = function (img, initials) {
+      if (!img || img.getAttribute('data-fallback') === '1') return;
+      img.setAttribute('data-fallback', '1');
+      img.style.display = 'none';
+      var frame = img.parentNode;
+      if (!frame || frame.querySelector('.brand-logo-svg')) return;
+      var badge = document.createElement('span');
+      badge.className = 'brand-logo-svg';
+      badge.innerHTML = '<svg viewBox="0 0 48 48" role="img" aria-label="' + initials + '">' +
+        '<rect width="48" height="48" rx="12" fill="currentColor"></rect>' +
+        '<text x="24" y="30" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="#ffffff">' + initials + '</text>' +
+        '</svg>';
+      frame.appendChild(badge);
+    };
+  </script>
+</head>
+<body data-warehouse="GEA" class="auth-gate">
+  <noscript>
+    <p style="margin:0;padding:14px;background:#fef3c7;color:#92400e;text-align:center;">
+      JavaScript wajib diaktifkan untuk menggunakan WMS Terpadu.
+    </p>
+  </noscript>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Navigasi utama">
+      <div class="sidebar__brand">
+        <span class="brand-logo-frame">
+          <img class="brand-logo" src="assets/img/logo-gea.png" alt="Logo PT GEA" onerror="wmsLogoSvgFallback(this, 'GEA')">
+        </span>
+        <span class="brand-text">
+          <strong>PT GEA</strong>
+          <small>Warehouse System</small>
+        </span>
+      </div>
+
+      <div class="sidebar__warehouse">
+        <span class="sidebar__warehouse-label">Gudang Aktif</span>
+        <strong>Gudang PT GEA</strong>
+        <span class="sidebar__warehouse-code">GEA</span>
+      </div>
+
+      <nav class="sidebar__nav" aria-label="Modul WMS">
+        <span class="sidebar__section">Operasional</span>
+
+        <button type="button" class="nav-item" data-module="inbound">
+          <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+          </svg>
+          <span class="nav-item__text">Inbound<small>Putaway penerimaan</small></span>
+        </button>
+
+        <button type="button" class="nav-item" data-module="outbound">
+          <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>
+          </svg>
+          <span class="nav-item__text">Outbound<small>Picking, dispatch &amp; OTD</small></span>
+        </button>
+
+        <button type="button" class="nav-item" data-module="inventory">
+          <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/>
+          </svg>
+          <span class="nav-item__text">Inventory &amp; Transfer<small>Stok, kartu stok &amp; mutasi</small></span>
+        </button>
+
+        <button type="button" class="nav-item" data-module="opname" data-requires-role="SUPERVISOR" hidden>
+          <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="m9 13 2 2 4-4"/>
+          </svg>
+          <span class="nav-item__text">Stock Opname<small>Approval supervisor</small></span>
+        </button>
+
+        <span class="sidebar__section">Sesi</span>
+        <div class="sidebar__footer" style="border-top:0;padding-top:0;">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>
+            <strong id="sidebar-user-name">Belum login</strong>
+            <span id="sidebar-user-role">Silakan masuk kembali</span>
+          </span>
+        </div>
+      </nav>
+
+      <div class="sidebar__footer">
+        <span>WMS Terpadu · <strong>v1.0</strong></span>
+      </div>
+    </aside>
+
+    <button type="button" class="sidebar-overlay" id="sidebar-overlay" aria-label="Tutup menu"></button>
+
+    <div class="app-main">
+      <header class="topbar">
+        <button type="button" class="icon-btn nav-toggle" id="nav-toggle" aria-label="Buka menu navigasi" aria-controls="sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+        </button>
+
+        <div class="topbar__context">
+          <span class="topbar__eyebrow" id="page-eyebrow">WMS Terpadu</span>
+          <h1 class="topbar__title" id="page-title">Dashboard Gudang</h1>
+        </div>
+
+        <div class="topbar__meta">
+          <span class="warehouse-badge">
+            <span class="dot" aria-hidden="true"></span>
+            Gudang PT GEA
+            <code>GEA</code>
+          </span>
+          <span class="api-status" id="api-status" data-api-status="idle" title="Status koneksi API">
+            <span class="api-status__dot" aria-hidden="true"></span>
+            <span class="api-status__label">Menunggu login</span>
+          </span>
+        </div>
+
+        <div class="user-chip">
+          <span class="avatar" id="user-initials" aria-hidden="true">WM</span>
+          <span class="user-chip__text">
+            <span class="user-chip__name" id="user-name">—</span>
+            <span class="user-chip__role" id="user-role">—</span>
+          </span>
+        </div>
+
+        <div class="topbar__actions">
+          <button type="button" class="btn btn--ghost btn--sm" id="switch-warehouse" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>
+            </svg>
+            Pindah Gudang
+          </button>
+          <button type="button" class="btn btn--danger-ghost btn--sm" id="logout-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M15 8l4 4-4 4"/><path d="M9 12h10"/>
+            </svg>
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <main class="content" id="module-root">
+        <section class="module" data-module-panel="inbound" hidden></section>
+        <section class="module" data-module-panel="outbound" hidden></section>
+        <section class="module" data-module-panel="inventory" hidden></section>
+        <section class="module" data-module-panel="opname" hidden></section>
+      </main>
+
+      <footer class="app-footer">
+        <span><strong>WMS Terpadu</strong> · CV EPIC &amp; PT GEA · Single-Core Frontend</span>
+        <span>Data stok bersumber langsung dari Google Sheets operasional.</span>
+      </footer>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+  <div class="toast-root" id="toast-root" aria-live="polite" aria-atomic="false"></div>
+
+  <div class="modal-backdrop" id="login-backdrop" aria-hidden="true">
+    <div class="modal login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <div class="login-modal__accent" aria-hidden="true"></div>
+      <div class="modal__body">
+        <div class="login-brand">
+          <span class="brand-logo-frame">
+            <img class="brand-logo" src="assets/img/logo-gea.png" alt="Logo PT GEA" onerror="wmsLogoSvgFallback(this, 'GEA')">
+          </span>
+          <div class="login-brand__meta">
+            <strong>PT GEA</strong>
+            <span>Warehouse Management System</span>
+          </div>
+        </div>
+
+        <h2 class="login-heading" id="login-title">Masuk ke gudang</h2>
+        <p class="login-sub">Gudang aktif: <strong>Gudang PT GEA (GEA)</strong></p>
+
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label for="login-username">Username</label>
+            <input class="input" id="login-username" name="username" type="text" placeholder="contoh: admin.wms" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          </div>
+
+          <div class="field">
+            <label for="login-pin">PIN / Password</label>
+            <div class="input-affix">
+              <input class="input" id="login-pin" name="pin" type="password" placeholder="Masukkan PIN" autocomplete="current-password" maxlength="64" required>
+              <button type="button" class="input-affix__button" id="toggle-pin" aria-label="Tampilkan PIN">Lihat</button>
+            </div>
+            <p class="field-hint">PIN di-hash SHA-256 di browser; PIN asli tidak pernah dikirim ke server.</p>
+          </div>
+
+          <div class="form-alert" id="login-error" hidden role="alert"></div>
+
+          <button class="btn btn--primary btn--block" id="login-submit" type="submit">Masuk</button>
+        </form>
+
+        <p class="login-foot">
+          Sesi tersimpan pada <code>sessionStorage</code> dan berakhir otomatis saat tab ditutup.
+          Akses hanya untuk personel gudang terdaftar.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/file-handler.js"></script>
+  <script src="js/core-router.js"></script>
+  <script src="js/mod-inbound.js"></script>
+  <script src="js/mod-outbound.js"></script>
+  <script src="js/mod-inventory.js"></script>
+  <script src="js/mod-opname.js"></script>
+</body>
+</html>

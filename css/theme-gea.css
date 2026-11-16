@@ -1,0 +1,19 @@
+/* ==========================================================================
+   theme-gea.css — PT GEA
+   Palet: Emerald Green / Forest Green
+   ========================================================================== */
+
+:root {
+  --primary-color: #065f46;
+  --primary-hover: #047857;
+  --primary-light: #ecfdf5;
+  --sidebar-bg: #022c22;
+  --badge-accent: #d1fae5;
+}
+
+/* Aksen pratinjau untuk portal (index.html) */
+.portal-card--gea {
+  --card-accent: #065f46;
+  --card-accent-soft: #ecfdf5;
+  --card-deep: #022c22;
+}

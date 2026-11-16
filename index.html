@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Portal WMS Terpadu — pilih gudang CV EPIC atau PT GEA untuk mengakses Inbound, Outbound, Inventory & Transfer, dan Stock Opname.">
+  <meta name="theme-color" content="#0F172A">
+  <title>WMS Terpadu · Portal Gudang CV EPIC &amp; PT GEA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <script>
+    window.wmsLogoSvgFallback = function (img, initials) {
+      if (!img || img.getAttribute('data-fallback') === '1') return;
+      img.setAttribute('data-fallback', '1');
+      img.style.display = 'none';
+      var frame = img.parentNode;
+      if (!frame || frame.querySelector('.brand-logo-svg')) return;
+      var badge = document.createElement('span');
+      badge.className = 'brand-logo-svg';
+      badge.innerHTML = '<svg viewBox="0 0 48 48" role="img" aria-label="' + initials + '">' +
+        '<rect width="48" height="48" rx="12" fill="currentColor"></rect>' +
+        '<text x="24" y="30" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="#ffffff">' + initials + '</text>' +
+        '</svg>';
+      frame.appendChild(badge);
+    };
+  </script>
+</head>
+<body class="portal-body">
+  <header class="portal-header">
+    <div class="portal-brand">
+      <span class="portal-brand__mark" aria-hidden="true">WMS</span>
+      <span>
+        WMS Terpadu
+        <small>CV EPIC &amp; PT GEA</small>
+      </span>
+    </div>
+    <span class="portal-header__meta">Portal Operasional · 4 Modul · Single-Core</span>
+  </header>
+
+  <main class="portal-main">
+    <section class="portal-hero">
+      <p class="eyebrow">Portal Pemilihan Gudang</p>
+      <h1>Satu kendali untuk dua gudang.</h1>
+      <p>Pilih entitas gudang untuk membuka dashboard operasional. Setiap gudang memiliki database, Google Drive, dan tema visualnya sendiri dengan mesin aplikasi yang sama.</p>
+    </section>
+
+    <div class="portal-grid">
+      <a class="portal-card portal-card--epic" href="cv-epic.html" aria-label="Masuk ke Gudang CV EPIC">
+        <div class="portal-card__stripe" aria-hidden="true"></div>
+        <div class="portal-card__body">
+          <div class="portal-card__head">
+            <span class="portal-logo-frame">
+              <img src="assets/img/logo-epic.png" alt="Logo CV EPIC" onerror="wmsLogoSvgFallback(this, 'EPIC')">
+            </span>
+            <div>
+              <div class="portal-card__title">Gudang CV EPIC</div>
+              <span class="portal-card__code">EPIC</span>
+            </div>
+          </div>
+
+          <p class="portal-card__desc">Operasional gudang CV EPIC dengan aksen Corporate Blue / Navy. Database dan penyimpanan PDF terpisah pada GDrive CV EPIC.</p>
+
+          <ul class="portal-features">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              Putaway inbound &amp; antrean penerimaan
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              Picking, dispatch &amp; KPI On-Time Delivery
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              Stok real-time, kartu stok &amp; transfer
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              Approval Stock Opname khusus Supervisor
+            </li>
+          </ul>
+
+          <div class="portal-palette" aria-label="Pratinjau palet Corporate Blue">
+            <span class="swatch" style="background:#1E3A8A" title="#1E3A8A"></span>
+            <span class="swatch" style="background:#1D4ED8" title="#1D4ED8"></span>
+            <span class="swatch" style="background:#EFF6FF" title="#EFF6FF"></span>
+            <span class="swatch" style="background:#172554" title="#172554"></span>
+            <span class="palette-label">Corporate Blue / Navy</span>
+          </div>
+        </div>
+        <div class="portal-card__cta">
+          <span>Masuk ke Gudang CV EPIC</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </div>
+      </a>
+
+      <a class="portal-card portal-card--gea" href="pt-gea.html" aria-label="Masuk ke Gudang PT GEA">
+        <div class="portal-card__stripe" aria-hidden="true"></div>
+        <div class="portal-card__body">
+          <div class="portal-card__head">
+            <span class="portal-logo-frame">
+              <img src="assets/img/logo-gea.png" alt="Logo PT GEA" onerror="wmsLogoSvgFallback(this, 'GEA')">
+            </span>
+            <div>
+              <div class="portal-card__title">Gudang PT GEA</div>
+              <span class="portal-card__code">GEA</span>
+            </div>
+          </div>
+
+          <p class="portal-card__desc">Operasional gudang PT GEA dengan aksen Emerald Green / Forest Green. Database dan penyimpanan PDF terpisah pada GDrive PT GEA.</p>
+
+          <ul class="portal-features">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              Putaway inbound &amp; antrean penerimaan
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              Picking, dispatch &amp; KPI On-Time Delivery
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              Stok real-time, kartu stok &amp; transfer
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              Approval Stock Opname khusus Supervisor
+            </li>
+          </ul>
+
+          <div class="portal-palette" aria-label="Pratinjau palet Emerald Green">
+            <span class="swatch" style="background:#065F46" title="#065F46"></span>
+            <span class="swatch" style="background:#047857" title="#047857"></span>
+            <span class="swatch" style="background:#ECFDF5" title="#ECFDF5"></span>
+            <span class="swatch" style="background:#022C22" title="#022C22"></span>
+            <span class="palette-label">Emerald Green / Forest</span>
+          </div>
+        </div>
+        <div class="portal-card__cta">
+          <span>Masuk ke Gudang PT GEA</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </div>
+      </a>
+    </div>
+
+    <div class="portal-note">
+      <div class="portal-note__item">
+        <strong>Keamanan PIN</strong>
+        <span>PIN di-hash SHA-256 di browser, sesi token 8 jam, dan pembatasan role STAFF / SUPERVISOR.</span>
+      </div>
+      <div class="portal-note__item">
+        <strong>Bukti PDF 5 MB</strong>
+        <span>Surat jalan &amp; bukti transfer wajib PDF, disimpan ke GDrive gudang terkait.</span>
+      </div>
+      <div class="portal-note__item">
+        <strong>Master 12 Jam</strong>
+        <span>Master_Barang di-cache lokal 12 jam: UI tampil instan, data disegarkan di latar belakang.</span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="portal-footer">
+    <span><strong>WMS Terpadu</strong> · Frontend statis single-core untuk GitHub Pages</span>
+    <span>Google Apps Script API · Multi-Database · Multi-GDrive</span>
+  </footer>
+
+  <div class="toast-root" id="toast-root" aria-live="polite"></div>
+</body>
+</html>
