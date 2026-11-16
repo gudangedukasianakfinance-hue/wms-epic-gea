@@ -807,6 +807,12 @@
       return;
     }
 
+    if (id === 'users' && String(WMS.auth && WMS.auth.getRole() || '').toUpperCase() !== 'SUPERVISOR') {
+      ui.toast('Fitur ini hanya tersedia untuk Supervisor.', 'warning', 'Akses ditolak');
+      activate('inbound', { silent: true });
+      return;
+    }
+
     if (!canAccess(def)) {
       ui.toast('Fitur ini hanya tersedia untuk Supervisor.', 'warning', 'Akses ditolak');
       if (state.activeModule !== 'inbound') activate('inbound', { silent: true });
@@ -882,6 +888,7 @@
 
     var hash = String(global.location.hash || '').replace('#', '').trim().toLowerCase();
     var target = state.modules[hash] && canAccess(state.modules[hash]) ? hash : 'inbound';
+    if (hash === 'users' && String(WMS.auth && WMS.auth.getRole() || '').toUpperCase() !== 'SUPERVISOR') target = 'inbound';
 
     if (!state.modules[target]) target = Object.keys(state.modules)[0];
     if (!target) return;
@@ -942,6 +949,11 @@
     global.addEventListener('hashchange', function () {
       var id = String(global.location.hash || '').replace('#', '').trim().toLowerCase();
       if (!id || id === state.activeModule) return;
+      if (id === 'users' && String(WMS.auth && WMS.auth.getRole() || '').toUpperCase() !== 'SUPERVISOR') {
+        global.history.replaceState(null, '', '#inbound');
+        if (WMS.auth.getSession()) activate('inbound', { silent: true });
+        return;
+      }
       if (state.modules[id] && canAccess(state.modules[id]) && WMS.auth.getSession()) {
         activate(id, { silent: true });
       }
