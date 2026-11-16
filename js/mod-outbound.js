@@ -9,11 +9,12 @@
   if (!WMS || !WMS.registerModule) return;
 
   var ui = WMS.ui;
-  var COLSPAN = 8;
-  var state = { items: [], loaded: false };
+  var COLSPAN = 7;
+  var state = { items: [], groups: [], expanded: {}, loaded: false };
   var panel = null;
   var filterCtl = null;
   var stockMap = null;
+  var outboundSummary = null;
 
   function template() {
     return '' +
@@ -34,7 +35,7 @@
         '<article class="stat-card stat-card--accent">' +
           '<span class="stat-card__label">Total Order</span>' +
           '<strong class="stat-card__value" data-stat="total">â€”</strong>' +
-          '<span class="stat-card__meta">Seluruh transaksi Outbound_Log</span>' +
+          '<span class="stat-card__meta">Total No. DO unik</span>' +
         '</article>' +
         '<article class="stat-card">' +
           '<span class="stat-card__label">Dalam Proses</span>' +
@@ -81,7 +82,6 @@
         '<div class="table-wrap">' +
           '<table class="data-table data-table--compact" id="outbound-table">' +
             '<thead><tr>' +
-              '<th>ID Outbound</th>' +
               '<th>No DO / Tujuan</th>' +
               '<th>Barang</th>' +
               '<th class="num">Qty</th>' +
@@ -98,20 +98,14 @@
 
   function setStats() {
     if (!panel) return;
-    var total = state.items.length;
-    var progress = 0;
-    var delivered = 0;
-    var onTime = 0;
-    var delay = 0;
-
-    state.items.forEach(function (item) {
-      var status = String(item.Status_Kirim || '').toUpperCase();
-      if (status === 'PICKED' || status === 'DISPATCHED') progress++;
-      if (status === 'DELIVERED') {
+    var groups = groupOutboundItems_(state.items);
+    var total = groups.length, progress = 0, delivered = 0, onTime = 0, delay = 0;
+    groups.forEach(function (group) {
+      if (group.statuses.PICKED || group.statuses.DISPATCHED) progress++;
+      if (group.statuses.DELIVERED) {
         delivered++;
-        var otd = String(item.Status_OTD || '').toUpperCase();
-        if (otd === 'ON_TIME') onTime++;
-        if (otd === 'DELAY') delay++;
+        if (group.otd.ON_TIME) onTime++;
+        else if (group.otd.DELAY) delay++;
       }
     });
 
@@ -136,6 +130,31 @@
     if (meta) meta.textContent = otdMeta;
   }
 
+  function groupOutboundItems_(items) {
+    var groups = [], index = {};
+    (items || []).forEach(function (item) {
+      var noDo = String(item.No_DO || '').trim();
+      var key = noDo ? noDo.toUpperCase() : String(item.ID_Outbound || '').trim().toUpperCase();
+      if (!key) return;
+      if (!index[key]) {
+        index[key] = { key:key, noDo:noDo || item.ID_Outbound || '', items:[], statuses:{}, otd:{}, qty:0, customers:{}, targets:{}, actuals:{}, links:{} };
+        groups.push(index[key]);
+      }
+      var group = index[key];
+      group.items.push(item);
+      group.qty += ui.num(item.Qty);
+      var status = String(item.Status_Kirim || '').trim().toUpperCase();
+      var otd = String(item.Status_OTD || '').trim().toUpperCase();
+      if (status) group.statuses[status] = true;
+      if (otd) group.otd[otd] = true;
+      if (item.Tujuan_Customer) group.customers[String(item.Tujuan_Customer).trim()] = true;
+      if (item.Tgl_Target_Kirim) group.targets[String(item.Tgl_Target_Kirim).slice(0,10)] = true;
+      if (item.Tgl_Aktual_Tiba) group.actuals[String(item.Tgl_Aktual_Tiba).slice(0,10)] = true;
+      if (item.Link_PDF) group.links[String(item.Link_PDF)] = true;
+    });
+    return groups;
+  }
+
   function renderRows() {
     var tbody = panel && panel.querySelector('#outbound-body');
     if (!tbody) return;
@@ -146,45 +165,34 @@
       return;
     }
 
-    tbody.innerHTML = state.items.map(function (item) {
-      var status = String(item.Status_Kirim || '').trim().toUpperCase();
-      var otd = String(item.Status_OTD || '').trim().toUpperCase();
-      var search = [
-        item.ID_Outbound, item.No_DO, item.Tujuan_Customer, item.Kode_SKU, item.Nama_Barang, status, otd
-      ].join(' ').toLowerCase();
-
-      var action = '<span class="muted" style="font-size:11.5px">â€”</span>';
-      if (status === 'PICKED') {
-        action = '<button type="button" class="btn btn--primary btn--sm" data-dispatch="' + ui.esc(item.ID_Outbound) + '">Dispatch</button>';
-      } else if (status === 'DISPATCHED') {
-        action = '<button type="button" class="btn btn--secondary btn--sm" data-delivered="' + ui.esc(item.ID_Outbound) + '">Konfirmasi Tiba</button>';
-      } else if (status === 'DELIVERED') {
-        action = '<span class="muted" style="font-size:11.5px">Selesai</span>';
-      }
-
-      return '<tr data-row data-status="' + ui.esc(status) + '" data-otd="' + ui.esc(otd || 'NONE') + '" data-search="' + ui.esc(search) + '">' +
-        '<td>' + ui.cellStack(item.ID_Outbound || 'â€”', ui.formatDateTime(item.Tanggal_Order)) + '</td>' +
-        '<td>' + ui.cellStack(item.No_DO || 'â€”', item.Tujuan_Customer || '') + '</td>' +
-        '<td>' + ui.cellStack(item.Kode_SKU, item.Nama_Barang) + '</td>' +
-        '<td class="num">' + ui.formatQty(item.Qty) + '</td>' +
-        '<td>' + ui.cellStack(
-          ui.formatDate(item.Tgl_Target_Kirim),
-          'Tiba: ' + ui.formatDate(item.Tgl_Aktual_Tiba)
-        ) + '</td>' +
-        '<td>' + (otd ? ui.badge(otd) : '<span class="muted">â€”</span>') + '</td>' +
-        '<td>' + ui.badge(status) + '</td>' +
-        '<td class="actions-cell">' +
-          '<div class="table-actions">' +
-            ui.pdfLink(item.Link_PDF) +
-            action +
-          '</div>' +
-        '</td>' +
-      '</tr>';
+    state.groups = groupOutboundItems_(state.items);
+    tbody.innerHTML = state.groups.map(function (group) {
+      var statuses = Object.keys(group.statuses), otds = Object.keys(group.otd);
+      var status = group.statuses.PICKED ? 'PICKED' : group.statuses.DISPATCHED ? 'DISPATCHED' : group.statuses.DELIVERED ? 'DELIVERED' : (statuses[0] || '');
+      var otd = group.otd.ON_TIME ? 'ON_TIME' : group.otd.DELAY ? 'DELAY' : (otds[0] || '');
+      var expanded = !!state.expanded[group.key];
+      var customer = Object.keys(group.customers).join(', ');
+      var target = Object.keys(group.targets)[0] || '';
+      var actual = Object.keys(group.actuals)[0] || '';
+      var first = group.items[0];
+      var search = group.items.map(function (i) { return [i.ID_Outbound,i.No_DO,i.Tujuan_Customer,i.Kode_SKU,i.Nama_Barang,i.Status_Kirim,i.Status_OTD].join(' '); }).join(' ').toLowerCase();
+      var action = '';
+      if (group.statuses.PICKED) action += '<button type="button" class="btn btn--primary btn--sm" data-dispatch="'+ui.esc(first.ID_Outbound)+'">Dispatch</button>';
+      if (group.statuses.DISPATCHED) action += '<button type="button" class="btn btn--secondary btn--sm" data-delivered="'+ui.esc(first.ID_Outbound)+'">Konfirmasi Tiba</button>';
+      if (group.statuses.DELIVERED && !group.statuses.PICKED && !group.statuses.DISPATCHED) action += '<span class="muted" style="font-size:11.5px">Selesai</span>';
+      action += '<button type="button" class="btn btn--ghost btn--sm" data-edit-dates="'+ui.esc(first.ID_Outbound)+'">Edit Tanggal</button>';
+      var detailRows = group.items.map(function (item) {
+        return '<tr><td>'+ui.esc(item.ID_Outbound||'—')+'</td><td>'+ui.esc(item.Kode_SKU||'—')+'</td><td>'+ui.esc(item.Nama_Barang||'—')+'</td><td class="num">'+ui.formatQty(item.Qty)+'</td></tr>';
+      }).join('');
+      return '<tr data-row data-status="'+ui.esc(status)+'" data-otd="'+ui.esc(otd||'NONE')+'" data-search="'+ui.esc(search)+'">'+
+        '<td class="outbound-group-toggle" colspan="2"><button type="button" class="outbound-expand" data-toggle-group="'+ui.esc(group.key)+'" aria-expanded="'+expanded+'"><span class="outbound-expand__arrow">'+(expanded?'&#9662;':'&#9656;')+'</span><strong>'+ui.esc(group.noDo)+'</strong><span class="muted">'+ui.esc(customer)+'</span></button></td>'+
+        '<td><button type="button" class="outbound-summary-toggle" data-toggle-group="'+ui.esc(group.key)+'" aria-expanded="'+expanded+'">'+group.items.length+' Item SKU &bull; Total '+ui.formatNumber(group.qty)+' pcs</button></td>'+
+        '<td class="num">'+ui.formatNumber(group.qty)+'</td><td>'+ui.cellStack(ui.formatDate(target),'Tiba: '+ui.formatDate(actual))+'</td><td>'+(otd?ui.badge(otd):'<span class="muted">—</span>')+'</td><td>'+ui.badge(status)+'</td><td class="actions-cell"><div class="table-actions">'+ui.pdfLink(Object.keys(group.links)[0])+action+'</div></td></tr>'+
+        '<tr class="outbound-detail-row" data-detail-for="'+ui.esc(group.key)+'" '+(expanded?'':'hidden')+'><td colspan="'+COLSPAN+'"><div class="outbound-detail-wrap"><table class="data-table data-table--compact"><thead><tr><th>ID Outbound</th><th>Kode SKU</th><th>Nama Barang</th><th class="num">Qty</th></tr></thead><tbody>'+detailRows+'</tbody></table></div></td></tr>';
     }).join('') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status.') +
       '</td></tr>';
-
     if (filterCtl) filterCtl.apply();
   }
 
@@ -204,6 +212,7 @@
     try {
       var data = await WMS.api.request('OUTBOUND_LIST');
       state.items = data && Array.isArray(data.items) ? data.items : [];
+      outboundSummary = data && data.summary ? data.summary : null;
       state.loaded = true;
       setStats();
       renderRows();
@@ -221,6 +230,36 @@
     return state.items.find(function (item) {
       return String(item.ID_Outbound) === String(id);
     }) || null;
+  }
+
+  function findGroupById(id) {
+    return state.groups.find(function (group) {
+      return group.items.some(function (item) { return String(item.ID_Outbound) === String(id); });
+    }) || null;
+  }
+
+  function openEditDates(group) {
+    if (!group) return;
+    var target = Object.keys(group.targets)[0] || '';
+    var actual = Object.keys(group.actuals)[0] || '';
+    var body = '<form id="outbound-dates-form" class="form-grid" novalidate>' +
+      '<div class="field"><label for="edit-target-date">Tanggal Kirim / Target</label><input class="input" id="edit-target-date" type="date" value="'+ui.esc(target)+'"></div>' +
+      '<div class="field"><label for="edit-actual-date">Tanggal Aktual Terima</label><input class="input" id="edit-actual-date" type="date" value="'+ui.esc(actual)+'"></div>' +
+      '<div class="form-alert" id="edit-dates-error" hidden role="alert"></div></form>';
+    ui.openModal({eyebrow:'Outbound · Tanggal',title:'Edit Tanggal Pengiriman',subtitle:group.noDo,body:body,
+      footer:'<button type="button" class="btn btn--ghost" data-modal-close>Batal</button><button type="submit" class="btn btn--primary" form="outbound-dates-form" data-submit>Simpan Tanggal</button>',
+      onMount:function(modal,close){
+        modal.querySelector('#outbound-dates-form').addEventListener('submit',async function(event){
+          event.preventDefault(); var err=modal.querySelector('#edit-dates-error'); var submit=modal.querySelector('[data-submit]');
+          var targetValue=modal.querySelector('#edit-target-date').value; var actualValue=modal.querySelector('#edit-actual-date').value;
+          if(!targetValue&&!actualValue){err.textContent='Isi setidaknya satu tanggal.';err.hidden=false;return;}
+          var params={noDo:group.noDo}; if(targetValue)params.tglTargetKirim=targetValue; if(actualValue)params.tglAktualTiba=actualValue;
+          ui.setBusy(submit,true,'Menyimpan…');
+          try{await WMS.api.request('OUTBOUND_UPDATE_DATES',params);close('saved');ui.toast('Tanggal seluruh item '+group.noDo+' berhasil diperbarui.','success');await load({silent:false});}
+          catch(error){if(WMS.api.isAuthError(error)){close('auth');return;}ui.setBusy(submit,false);err.textContent=error.message||'Tanggal gagal diperbarui.';err.hidden=false;}
+        });
+      }
+    });
   }
 
   function ensureStockMap() {
@@ -480,6 +519,10 @@
       outboundDetail(item) +
       '<form id="dispatch-form" novalidate>' +
         '<div class="field">' +
+          '<label for="dispatch-target">Tanggal Kirim / Target Kirim</label>' +
+          '<input class="input" id="dispatch-target" type="date" value="' + ui.esc(String(item.Tgl_Target_Kirim || '').slice(0, 10)) + '">' +
+        '</div>' +
+        '<div class="field">' +
           '<label>Surat Jalan / Bukti Kirim <span class="req">*</span></label>' +
           fileDrop('dispatch-file') +
           '<p class="field-hint">Berkas disimpan ke Google Drive gudang aktif. Validasi MIME PDF dilakukan sebelum upload.</p>' +
@@ -527,16 +570,19 @@
 
           try {
             var prepared = await WMS.file.prepare(file);
+            var targetDate = String(modal.querySelector('#dispatch-target').value || '').trim();
             var result = await WMS.api.request('OUTBOUND_DISPATCH', {
+              noDo: item.No_DO,
               idOutbound: item.ID_Outbound,
-              pdfBase64: prepared.base64,
-              pdfFileName: prepared.fileName
+              tglTargetKirim: targetDate,
+              fileBase64: prepared.base64,
+              fileName: prepared.fileName
             }, { timeout: (WMS.config && WMS.config.UPLOAD_TIMEOUT) || 120000 });
 
             stockMap = null;
             close('saved');
             ui.toast(
-              'Saldo aktif ' + (result.kodeSku || item.Kode_SKU) + ' menjadi ' + ui.formatNumber(ui.num(result.saldoAkhir)) + ' unit.',
+              'Berhasil dispatch ' + (result.itemCount || 1) + ' item untuk No DO ' + (result.noDo || item.No_DO) + '.',
               'success',
               'Dispatch ' + item.ID_Outbound + ' berhasil'
             );
@@ -616,6 +662,7 @@
 
           try {
             var result = await WMS.api.request('OUTBOUND_DELIVERED', {
+              noDo: item.No_DO,
               idOutbound: item.ID_Outbound,
               tglAktualTiba: actual
             });
@@ -685,6 +732,15 @@
 
     var tbody = root.querySelector('#outbound-body');
     tbody.addEventListener('click', function (event) {
+      var toggle = event.target.closest ? event.target.closest('[data-toggle-group]') : null;
+      if (toggle) {
+        var groupKey = toggle.getAttribute('data-toggle-group');
+        state.expanded[groupKey] = !state.expanded[groupKey];
+        renderRows();
+        return;
+      }
+      var editDatesBtn = event.target.closest ? event.target.closest('[data-edit-dates]') : null;
+      if (editDatesBtn) { openEditDates(findGroupById(editDatesBtn.getAttribute('data-edit-dates'))); return; }
       var dispatchBtn = event.target.closest ? event.target.closest('[data-dispatch]') : null;
       if (dispatchBtn) {
         openDispatch(findItem(dispatchBtn.getAttribute('data-dispatch')));
