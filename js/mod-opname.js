@@ -10,7 +10,7 @@
 
   var ui = WMS.ui;
   var COLSPAN = 8;
-  var state = { items: [], loaded: false, locked: false };
+  var state = { items: [], drafts: [], stocks: [], loaded: false, locked: false };
   var panel = null;
   var filterCtl = null;
 
@@ -19,11 +19,12 @@
       '<div class="module-head">' +
         '<div>' +
           '<p class="eyebrow">Modul 4 · Stock Opname</p>' +
-          '<h2>Approval Stock Opname</h2>' +
-          '<p class="module-head__desc">Verifikasi selisih hasil hitung fisik dari AppSheet. Approval akan menyesuaikan Stok_Aktif dan mencatat mutasi ADJUSTMENT_SO.</p>' +
+          '<h2>Stock Opname</h2>' +
+          '<p class="module-head__desc">Terbitkan perintah hitung untuk tim lapangan dan tinjau hasil fisik dari AppSheet.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
+          '<button type="button" class="btn btn--primary btn--sm" data-action="create">+ Buat Perintah SO</button>' +
         '</div>' +
       '</div>' +
 
@@ -50,6 +51,9 @@
         '</article>' +
       '</div>' +
 
+      '<div class="card opname-draft-card"><div class="card__head"><div><h3>Perintah SO Aktif di AppSheet</h3><p>Perintah DRAFT menunggu tim lapangan mengisi hasil hitung fisik.</p></div><span class="pill" id="opname-draft-count">0 perintah</span></div>' +
+        '<div class="table-wrap"><table class="data-table"><thead><tr><th>ID SO</th><th>Tanggal</th><th>Kode SKU</th><th>Nama Barang</th><th class="num">Stok Sistem</th><th>Status</th></tr></thead><tbody id="opname-draft-body">' + ui.tableLoadingRow(6, 3) + '</tbody></table></div></div>' +
+
       '<div class="card">' +
         '<div class="card__head">' +
           '<div>' +
@@ -72,7 +76,7 @@
         '<div class="table-wrap">' +
           '<table class="data-table" id="opname-table">' +
             '<thead><tr>' +
-              '<th>ID SO</th><th>Tanggal SO</th><th>SKU</th>' +
+              '<th>ID SO</th><th>Tanggal SO</th><th>Kode SKU</th><th>Nama Barang</th>' +
               '<th class="num">Stok Sistem</th><th class="num">Stok Fisik</th><th class="num">Selisih</th>' +
               '<th>Status</th><th class="actions-cell">Keputusan</th>' +
             '</tr></thead>' +
@@ -153,6 +157,7 @@
         '<td>' + ui.esc(item.ID_SO || '—') + '</td>' +
         '<td class="nowrap muted">' + ui.esc(ui.formatDateTime(item.Tanggal_SO)) + '</td>' +
         '<td>' + ui.esc(item.Kode_SKU || '—') + '</td>' +
+        '<td>' + ui.esc(ui.skuLabel(item.Kode_SKU) || '—') + '</td>' +
         '<td class="num">' + ui.formatQty(item.Stok_Sistem) + '</td>' +
         '<td class="num">' + ui.formatQty(item.Stok_Fisik) + '</td>' +
         '<td class="num ' + diffClass(diff) + '"><strong>' + diffLabel(diff) + '</strong></td>' +
@@ -165,11 +170,25 @@
         '</td>' +
       '</tr>';
     }).join('') +
-      '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
+      '<tr class="table-state" data-empty-row hidden><td colspan="' + (COLSPAN + 1) + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter selisih.') +
       '</td></tr>';
 
     if (filterCtl) filterCtl.apply();
+  }
+
+  function renderDraftRows() {
+    var body = panel && panel.querySelector('#opname-draft-body');
+    if (!body) return;
+    var count = panel.querySelector('#opname-draft-count');
+    if (count) count.textContent = state.drafts.length + ' perintah';
+    if (!state.drafts.length) {
+      body.innerHTML = ui.tableEmptyRow(6, 'Tidak ada perintah DRAFT', 'Perintah baru akan muncul di sini setelah dibuat.');
+      return;
+    }
+    body.innerHTML = state.drafts.slice().sort(function(a,b){return String(b.Tanggal_SO||'').localeCompare(String(a.Tanggal_SO||''));}).map(function(item){
+      return '<tr><td>'+ui.esc(item.ID_SO||'—')+'</td><td class="nowrap muted">'+ui.esc(ui.formatDateTime(item.Tanggal_SO))+'</td><td>'+ui.esc(item.Kode_SKU||'—')+'</td><td>'+ui.esc(ui.skuLabel(item.Kode_SKU)||'—')+'</td><td class="num">'+ui.formatQty(item.Stok_Sistem)+'</td><td>'+ui.badge('DRAFT')+'</td></tr>';
+    }).join('');
   }
 
   function renderError(error) {
@@ -189,9 +208,11 @@
     try {
       var data = await WMS.api.request('OPNAME_PENDING');
       state.items = data && Array.isArray(data.items) ? data.items : [];
+      state.drafts = data && Array.isArray(data.draftItems) ? data.draftItems : [];
       state.loaded = true;
       setStats();
       renderRows();
+      renderDraftRows();
     } catch (error) {
       if (WMS.api.isAuthError(error)) return;
       if (opts.silent && state.loaded) {
@@ -206,6 +227,34 @@
     return state.items.find(function (item) {
       return String(item.ID_SO) === String(id);
     }) || null;
+  }
+
+  async function loadStockOptions() {
+    if (state.stocks.length) return state.stocks;
+    var data = await WMS.api.request('INVENTORY_LIST');
+    state.stocks = data && Array.isArray(data.items) ? data.items.filter(function(item){return String(item.Status_Aktif||'AKTIF').toUpperCase()==='AKTIF';}) : [];
+    return state.stocks;
+  }
+
+  function openCreateOrder() {
+    var body = '<form id="opname-create-form" novalidate>' +
+      '<div class="field"><label for="opname-order-date">Tanggal Perintah SO</label><input class="input" id="opname-order-date" type="date" value="'+ui.esc(ui.todayIso())+'" required></div>' +
+      '<fieldset class="field"><legend>Cakupan Opname</legend><label class="radio-option"><input type="radio" name="opname-scope" value="ALL" checked> Seluruh Stok Gudang (Full Opname)</label><label class="radio-option"><input type="radio" name="opname-scope" value="SELECTED"> Pilih SKU Tertentu (Cycle Count)</label></fieldset>' +
+      '<div id="opname-sku-picker" hidden><label for="opname-sku-search">Cari SKU / nama barang</label><input class="input" id="opname-sku-search" type="search" placeholder="Cari SKU atau nama barang"><div class="opname-sku-list" id="opname-sku-list"><div class="muted">Memuat stok gudang…</div></div><p class="field-hint" id="opname-selected-count">0 SKU dipilih</p></div>' +
+      '<div class="form-alert" id="opname-create-error" hidden role="alert"></div></form>';
+    ui.openModal({eyebrow:'Stock Opname',title:'Buat Perintah Stock Opname',size:'lg',body:body,
+      footer:'<button type="button" class="btn btn--ghost" data-modal-close>Batal</button><button type="submit" class="btn btn--primary" form="opname-create-form" data-submit>Buat Perintah</button>',
+      onMount:function(modal,close){
+        var picker=modal.querySelector('#opname-sku-picker'),list=modal.querySelector('#opname-sku-list'),search=modal.querySelector('#opname-sku-search'),selectedCount=modal.querySelector('#opname-selected-count');
+        var selected={};
+        function draw(){var query=String(search.value||'').trim().toLowerCase();var stocks=state.stocks.filter(function(item){return !query||[item.Kode_SKU,item.Nama_Barang].join(' ').toLowerCase().indexOf(query)!==-1;});list.innerHTML=stocks.map(function(item){var sku=String(item.Kode_SKU||'');return '<label class="opname-sku-option"><input type="checkbox" data-sku="'+ui.esc(sku)+'" '+(selected[sku]?'checked':'')+'><span><strong>'+ui.esc(sku)+'</strong><small>'+ui.esc(item.Nama_Barang||'')+'</small></span><span class="muted">Stok '+ui.formatQty(item.Stok_Aktif)+'</span></label>';}).join('')||'<div class="muted">SKU tidak ditemukan.</div>';selectedCount.textContent=Object.keys(selected).length+' SKU dipilih';}
+        modal.querySelectorAll('[name="opname-scope"]').forEach(function(radio){radio.addEventListener('change',function(){picker.hidden=radio.value!=='SELECTED'||!radio.checked;});});
+        search.addEventListener('input',draw);
+        list.addEventListener('change',function(event){var box=event.target.closest('[data-sku]');if(!box)return;var sku=box.getAttribute('data-sku');if(box.checked)selected[sku]=true;else delete selected[sku];draw();});
+        loadStockOptions().then(draw).catch(function(error){list.textContent=error.message||'Daftar stok gagal dimuat.';});
+        modal.querySelector('#opname-create-form').addEventListener('submit',async function(event){event.preventDefault();var errorBox=modal.querySelector('#opname-create-error'),submit=modal.querySelector('[data-submit]');errorBox.hidden=true;var scope=modal.querySelector('[name="opname-scope"]:checked').value;var skuList=Object.keys(selected);if(scope==='SELECTED'&&!skuList.length){errorBox.textContent='Pilih minimal satu SKU untuk Cycle Count.';errorBox.hidden=false;return;}ui.setBusy(submit,true,'Membuat perintah…');try{var result=await WMS.api.request('OPNAME_CREATE',{scope:scope,skuList:skuList,tanggalSo:modal.querySelector('#opname-order-date').value});close('saved');var message='Berhasil menerbitkan '+(result.createdCount||0)+' SKU ke AppSheet.';if(result.skippedCount)message+=' '+result.skippedCount+' SKU dilewati: '+(result.skippedSkus||[]).join(', ')+'.';ui.toast(message,result.skippedCount?'warning':'success','Perintah SO dibuat');await load({silent:false});}catch(error){if(WMS.api.isAuthError(error)){close('auth');return;}ui.setBusy(submit,false);errorBox.textContent=error.message||'Perintah SO gagal dibuat.';errorBox.hidden=false;}});
+      }
+    });
   }
 
   function soDetail(item) {
@@ -310,6 +359,7 @@
     root.querySelector('[data-action="refresh"]').addEventListener('click', function () {
       load({ silent: false });
     });
+    root.querySelector('[data-action="create"]').addEventListener('click', openCreateOrder);
 
     var tbody = root.querySelector('#opname-body');
     tbody.addEventListener('click', function (event) {

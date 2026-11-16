@@ -2677,3 +2677,12 @@ body.auth-gate {
 .outbound-detail-wrap { overflow:auto; border:1px solid var(--border); border-radius:var(--radius-md); }
 .outbound-detail-wrap .data-table { margin:0; }
 @media (max-width:720px) { .outbound-expand { min-width:140px; } .outbound-detail-row > td { padding:0 6px 10px !important; } }
+
+/* Stock Opname cycle count selector */
+.radio-option { display:flex; align-items:center; gap:9px; margin-top:8px; font-weight:500; }
+.opname-sku-list { display:grid; gap:6px; max-height:280px; overflow:auto; margin-top:10px; }
+.opname-sku-option { display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer; }
+.opname-sku-option > span:nth-child(2) { display:grid; flex:1; }
+.opname-sku-option small { color:var(--text-muted); }
+.opname-draft-card { margin-bottom:18px; }
+@media (max-width:720px) { .opname-sku-option { align-items:flex-start; flex-wrap:wrap; } }
