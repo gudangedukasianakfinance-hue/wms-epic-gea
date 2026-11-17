@@ -14,6 +14,7 @@
   var state = { items: [], loaded: false };
   var panel = null;
   var filterCtl = null;
+  var activeStatusTab = 'PENDING_PUTAWAY';
 
   function template() {
     return '' +
@@ -61,11 +62,11 @@
         '</div>' +
         '<div class="toolbar">' +
           ui.searchField('inbound-search', 'Cari ID, PO, supplier, SKU…') +
-          '<select id="inbound-filter" class="select select--sm" aria-label="Filter status inbound">' +
-            '<option value="">Semua status</option>' +
-            '<option value="PENDING_PUTAWAY">PENDING_PUTAWAY</option>' +
-            '<option value="PUTAWAY_COMPLETED">PUTAWAY_COMPLETED</option>' +
-          '</select>' +
+          '<div class="status-tabs" role="tablist" aria-label="Filter status inbound">' +
+            '<button type="button" class="status-tabs__tab is-active" role="tab" aria-selected="true" data-status-tab="PENDING_PUTAWAY">Pending Putaway <span class="tab-badge tab-badge--task" data-tab-count="pending">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="PUTAWAY_COMPLETED">Putaway Completed <span class="tab-badge" data-tab-count="completed">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="">Semua <span class="tab-badge" data-tab-count="all">0</span></button>' +
+          '</div>' +
           '<select id="inbound-qc-filter" class="select select--sm" aria-label="Filter kondisi QC">' +
             '<option value="">Semua kondisi QC</option>' +
             '<option value="karantina">Ada karantina</option>' +
@@ -119,6 +120,20 @@
     Object.keys(values).forEach(function (key) {
       var el = panel.querySelector('[data-stat="' + key + '"]');
       if (el) el.textContent = values[key];
+    });
+  }
+
+  function updateStatusTabs() {
+    if (!panel) return;
+    var counts = { pending: 0, completed: 0, all: state.items.length };
+    state.items.forEach(function (item) {
+      var status = String(item.Status_Inbound || '').trim().toUpperCase();
+      if (status === 'PENDING_PUTAWAY') counts.pending++;
+      else if (status === 'PUTAWAY_COMPLETED') counts.completed++;
+    });
+    Object.keys(counts).forEach(function (key) {
+      var badge = panel.querySelector('[data-tab-count="' + key + '"]');
+      if (badge) { badge.textContent = counts[key]; badge.classList.toggle('tab-badge--zero', counts[key] === 0); }
     });
   }
 
@@ -319,11 +334,21 @@
       count: '#inbound-count',
       countLabel: 'transaksi',
       filters: [
-        { selector: '#inbound-filter', attr: 'data-status' },
+        { selector: '[data-status-tab].is-active', attr: 'data-status', valueGetter: function () { return activeStatusTab; } },
         { selector: '#inbound-qc-filter', attr: 'data-qc' }
       ]
     });
 
+    root.querySelectorAll('[data-status-tab]').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        root.querySelectorAll('[data-status-tab]').forEach(function (candidate) {
+          var selected = candidate === tab;
+          candidate.classList.toggle('is-active', selected);
+          candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
+        filterCtl.apply();
+      });
+    });
     root.querySelector('[data-action="refresh"]').addEventListener('click', function () {
       load({ silent: false });
     });

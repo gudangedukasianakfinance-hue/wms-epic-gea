@@ -13,6 +13,7 @@
   var state = { items: [], groups: [], expanded: {}, loaded: false };
   var panel = null;
   var filterCtl = null;
+  var activeStatusTab = 'PICKED';
   var stockMap = null;
   var outboundSummary = null;
 
@@ -64,12 +65,12 @@
         '</div>' +
         '<div class="toolbar">' +
           ui.searchField('outbound-search', 'Cari ID, No DO, customer, SKU…') +
-          '<select id="outbound-filter" class="select select--sm" aria-label="Filter status kirim">' +
-            '<option value="">Semua status</option>' +
-            '<option value="PICKED">PICKED</option>' +
-            '<option value="DISPATCHED">DISPATCHED</option>' +
-            '<option value="DELIVERED">DELIVERED</option>' +
-          '</select>' +
+          '<div class="status-tabs" role="tablist" aria-label="Filter status outbound">' +
+            '<button type="button" class="status-tabs__tab is-active" role="tab" aria-selected="true" data-status-tab="PICKED">Perlu Dispatch (Picked) <span class="tab-badge tab-badge--task" data-tab-count="picked">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="DISPATCHED">Dalam Pengiriman (Dispatched) <span class="tab-badge tab-badge--task" data-tab-count="dispatched">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="DELIVERED">Delivered <span class="tab-badge" data-tab-count="delivered">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="">Semua Order <span class="tab-badge" data-tab-count="all">0</span></button>' +
+          '</div>' +
           '<select id="outbound-otd-filter" class="select select--sm" aria-label="Filter status OTD">' +
             '<option value="">Semua OTD</option>' +
             '<option value="ON_TIME">ON_TIME</option>' +
@@ -155,7 +156,23 @@
     return groups;
   }
 
+  function updateStatusTabs() {
+    if (!panel) return;
+    var groups = groupOutboundItems_(state.items);
+    var counts = { picked: 0, dispatched: 0, delivered: 0, all: groups.length };
+    groups.forEach(function (group) {
+      if (group.statuses.PICKED) counts.picked++;
+      if (group.statuses.DISPATCHED) counts.dispatched++;
+      if (group.statuses.DELIVERED) counts.delivered++;
+    });
+    Object.keys(counts).forEach(function (key) {
+      var badge = panel.querySelector('[data-tab-count="' + key + '"]');
+      if (badge) { badge.textContent = counts[key]; badge.classList.toggle('tab-badge--zero', counts[key] === 0); }
+    });
+  }
+
   function renderRows() {
+    updateStatusTabs();
     var tbody = panel && panel.querySelector('#outbound-body');
     if (!tbody) return;
 
@@ -684,11 +701,21 @@
       count: '#outbound-count',
       countLabel: 'order',
       filters: [
-        { selector: '#outbound-filter', attr: 'data-status' },
+        { selector: '[data-status-tab].is-active', attr: 'data-status', valueGetter: function () { return activeStatusTab; } },
         { selector: '#outbound-otd-filter', attr: 'data-otd' }
       ]
     });
 
+    root.querySelectorAll('[data-status-tab]').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        root.querySelectorAll('[data-status-tab]').forEach(function (candidate) {
+          var selected = candidate === tab;
+          candidate.classList.toggle('is-active', selected);
+          candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
+        filterCtl.apply();
+      });
+    });
     root.querySelector('[data-action="refresh"]').addEventListener('click', function () {
       load({ silent: false });
     });

@@ -459,7 +459,7 @@
 
         filters.forEach(function (filter) {
           if (!show) return;
-          var value = filter.el.value;
+          var value = filter.valueGetter ? filter.valueGetter() : filter.el.value;
           if (!value) return;
           var rowValue = String(row.getAttribute(filter.attr) || '');
           if (filter.mode === 'includes') {
