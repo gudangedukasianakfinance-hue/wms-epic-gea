@@ -228,6 +228,11 @@
           '<input class="input" id="putaway-rak" name="lokasiRak" type="text" placeholder="Contoh: RAK-A-03" maxlength="40" required autocomplete="off">' +
           '<p class="field-hint">Gunakan kode rak fisik yang berlaku di gudang. Lokasi ini tersimpan pada baris stok SKU.</p>' +
         '</div>' +
+        '<div class="field">' +
+          '<label for="putaway-file">Lampiran Bukti / Surat Jalan PDF (Opsional)</label>' +
+          '<input class="input" id="putaway-file" type="file" accept="application/pdf,.pdf">' +
+          '<p class="field-hint">PDF maksimal 5 MB. Kosongkan jika tidak ada lampiran.</p>' +
+        '</div>' +
         '<div class="form-alert" id="putaway-error" hidden role="alert"></div>' +
         '<div class="confirm-panel" style="margin-top:14px">' +
           ui.ICONS.info +
@@ -249,6 +254,7 @@
         var input = modal.querySelector('#putaway-rak');
         var errorBox = modal.querySelector('#putaway-error');
         var submit = modal.querySelector('[data-submit]');
+        var fileInput = modal.querySelector('#putaway-file');
 
         form.addEventListener('submit', async function (event) {
           event.preventDefault();
@@ -265,9 +271,13 @@
           ui.setBusy(submit, true, 'Memposting…');
 
           try {
+            var file = fileInput.files && fileInput.files[0];
+            var prepared = file ? await WMS.file.prepare(file) : null;
             var result = await WMS.api.request('INBOUND_PUTAWAY', {
               idInbound: item.ID_Inbound,
-              lokasiRak: lokasi
+              lokasiRak: lokasi,
+              fileBase64: prepared ? prepared.base64 : '',
+              fileName: prepared ? prepared.fileName : ''
             });
 
             close('saved');

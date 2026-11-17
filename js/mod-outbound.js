@@ -422,7 +422,7 @@
       '<input type="file" id="' + id + '" accept="application/pdf,.pdf" data-file-input>' +
       '<span class="file-drop__icon">' + ui.ICONS.file + '</span>' +
       '<span class="file-drop__title">Pilih atau tarik berkas PDF ke sini</span>' +
-      '<span class="file-drop__hint">Wajib PDF · maksimal 5 MB</span>' +
+      '<span class="file-drop__hint">PDF opsional · maksimal 5 MB</span>' +
       '</div>' +
       '<div class="file-chip" data-file-chip hidden></div>';
   }
@@ -523,7 +523,7 @@
           '<input class="input" id="dispatch-target" type="date" value="' + ui.esc(String(item.Tgl_Target_Kirim || '').slice(0, 10)) + '">' +
         '</div>' +
         '<div class="field">' +
-          '<label>Surat Jalan / Bukti Kirim <span class="req">*</span></label>' +
+          '<label>Lampiran Bukti Kirim / Resi PDF (Opsional)</label>' +
           fileDrop('dispatch-file') +
           '<p class="field-hint">Berkas disimpan ke Google Drive gudang aktif. Validasi MIME PDF dilakukan sebelum upload.</p>' +
         '</div>' +
@@ -554,29 +554,17 @@
           ui.showInlineError(errorBox, '');
 
           var file = picker.getFile();
-          if (!file) {
-            ui.showInlineError(errorBox, 'Surat jalan PDF wajib diunggah sebelum dispatch.');
-            return;
-          }
+          ui.setBusy(submit, true, file ? 'Mengunggah PDF?' : 'Memproses dispatch?');
 
           try {
-            WMS.file.validate(file);
-          } catch (error) {
-            ui.showInlineError(errorBox, error.message);
-            return;
-          }
-
-          ui.setBusy(submit, true, 'Mengunggah PDF…');
-
-          try {
-            var prepared = await WMS.file.prepare(file);
+            var prepared = file ? await WMS.file.prepare(file) : null;
             var targetDate = String(modal.querySelector('#dispatch-target').value || '').trim();
             var result = await WMS.api.request('OUTBOUND_DISPATCH', {
               noDo: item.No_DO,
               idOutbound: item.ID_Outbound,
               tglTargetKirim: targetDate,
-              fileBase64: prepared.base64,
-              fileName: prepared.fileName
+              fileBase64: prepared ? prepared.base64 : '',
+              fileName: prepared ? prepared.fileName : ''
             }, { timeout: (WMS.config && WMS.config.UPLOAD_TIMEOUT) || 120000 });
 
             stockMap = null;
