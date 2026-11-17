@@ -13,8 +13,9 @@
   var COLSPAN = 8;
   var state = { items: [], loaded: false };
   var panel = null;
-  var filterCtl = null;
   var activeStatusTab = 'PENDING_PUTAWAY';
+  var activeQcFilter = '';
+  var searchQuery = '';
 
   function template() {
     return '' +
@@ -63,9 +64,9 @@
         '<div class="toolbar">' +
           ui.searchField('inbound-search', 'Cari ID, PO, supplier, SKU…') +
           '<div class="status-tabs" role="tablist" aria-label="Filter status inbound">' +
-            '<button type="button" class="status-tabs__tab is-active" role="tab" aria-selected="true" data-status-tab="PENDING_PUTAWAY">Pending Putaway <span class="tab-badge tab-badge--task" data-tab-count="pending">0</span></button>' +
-            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="PUTAWAY_COMPLETED">Putaway Completed <span class="tab-badge" data-tab-count="completed">0</span></button>' +
-            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="">Semua <span class="tab-badge" data-tab-count="all">0</span></button>' +
+            '<button type="button" class="status-tabs__tab is-active" role="tab" aria-selected="true" data-status="PENDING_PUTAWAY">Pending Putaway <span class="tab-badge tab-badge--task" data-tab-count="pending">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status="PUTAWAY_COMPLETED">Putaway Completed <span class="tab-badge" data-tab-count="completed">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status="">Semua <span class="tab-badge" data-tab-count="all">0</span></button>' +
           '</div>' +
           '<select id="inbound-qc-filter" class="select select--sm" aria-label="Filter kondisi QC">' +
             '<option value="">Semua kondisi QC</option>' +
@@ -137,16 +138,33 @@
     });
   }
 
+  function getFilteredData() {
+    var status = String(activeStatusTab || '').trim().toUpperCase();
+    var qc = String(activeQcFilter || '').trim().toLowerCase();
+    var query = String(searchQuery || '').trim().toLowerCase();
+    return state.items.filter(function (item) {
+      var itemStatus = String(item.Status_Inbound || '').trim().toUpperCase();
+      var itemQc = ui.num(item.Qty_Karantina) > 0 ? 'karantina' : 'lolos';
+      var text = [item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, itemStatus].join(' ').toLowerCase();
+      return (!status || itemStatus === status) && (!qc || itemQc === qc) && (!query || text.indexOf(query) !== -1);
+    });
+  }
+
   function renderRows() {
+    updateStatusTabs();
     var tbody = panel && panel.querySelector('#inbound-body');
     if (!tbody) return;
 
     if (!state.items.length) {
       tbody.innerHTML = ui.tableEmptyRow(COLSPAN, 'Antrean putaway kosong', 'Semua penerimaan sudah difinalisasi atau belum ada data QC masuk.');
-      if (filterCtl) filterCtl.apply();
+      var emptyCount = panel.querySelector('#inbound-count');
+      if (emptyCount) emptyCount.textContent = '0 transaksi';
       return;
     }
 
+    var visibleItems = getFilteredData();
+    var visibleIds = {};
+    visibleItems.forEach(function (item) { visibleIds[String(item.ID_Inbound)] = true; });
     tbody.innerHTML = state.items.map(function (item) {
       var status = String(item.Status_Inbound || '').trim().toUpperCase();
       var karantina = ui.num(item.Qty_Karantina);
@@ -180,8 +198,16 @@
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status.') +
       '</td></tr>';
-
-    if (filterCtl) filterCtl.apply();
+    tbody.querySelectorAll('tr[data-row]').forEach(function (row) {
+      var button = row.querySelector('[data-putaway]');
+      var cell = row.querySelector('td');
+      var id = button ? button.getAttribute('data-putaway') : (cell ? String(cell.textContent || '').trim().split(/\s+/)[0] : '');
+      row.hidden = !visibleIds[id];
+    });
+    var emptyRow = tbody.querySelector('[data-empty-row]');
+    if (emptyRow) emptyRow.hidden = visibleItems.length > 0;
+    var count = panel.querySelector('#inbound-count');
+    if (count) count.textContent = visibleItems.length + ' transaksi';
   }
 
   function renderError(error) {
@@ -328,33 +354,28 @@
     panel = root;
     root.innerHTML = template();
 
-    filterCtl = ui.filterTable({
-      table: '#inbound-table',
-      search: '#inbound-search',
-      count: '#inbound-count',
-      countLabel: 'transaksi',
-      filters: [
-        { selector: '[data-status-tab].is-active', attr: 'data-status', valueGetter: function () { return activeStatusTab; } },
-        { selector: '#inbound-qc-filter', attr: 'data-qc' }
-      ]
-    });
-
-    root.querySelectorAll('[data-status-tab]').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        root.querySelectorAll('[data-status-tab]').forEach(function (candidate) {
-          var selected = candidate === tab;
-          candidate.classList.toggle('is-active', selected);
-          candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
-        });
-        filterCtl.apply();
+    root.addEventListener('click', function (event) {
+      var tab = event.target.closest ? event.target.closest('.status-tabs [data-status]') : null;
+      if (!tab || !root.contains(tab)) return;
+      activeStatusTab = String(tab.getAttribute('data-status') || '').trim().toUpperCase();
+      root.querySelectorAll('.status-tabs [data-status]').forEach(function (candidate) {
+        var selected = candidate === tab;
+        candidate.classList.toggle('is-active', selected);
+        candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
       });
+      renderRows();
     });
-    root.querySelector('[data-action="refresh"]').addEventListener('click', function () {
+    var searchInput = root.querySelector('#inbound-search');
+    if (searchInput) searchInput.addEventListener('input', function () { searchQuery = searchInput.value || ''; renderRows(); });
+    var qcFilter = root.querySelector('#inbound-qc-filter');
+    if (qcFilter) qcFilter.addEventListener('change', function () { activeQcFilter = qcFilter.value || ''; renderRows(); });
+    var refreshButton = root.querySelector('[data-action="refresh"]');
+    if (refreshButton) refreshButton.addEventListener('click', function () {
       load({ silent: false });
     });
 
     var tbody = root.querySelector('#inbound-body');
-    tbody.addEventListener('click', function (event) {
+    if (tbody) tbody.addEventListener('click', function (event) {
       var button = event.target.closest ? event.target.closest('[data-putaway]') : null;
       if (!button) return;
       openPutaway(findItem(button.getAttribute('data-putaway')));

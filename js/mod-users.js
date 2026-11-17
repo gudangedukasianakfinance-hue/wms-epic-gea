@@ -40,7 +40,7 @@
   function openForm(user) {
     var edit = !!user;
     ui.openModal({eyebrow:'Manajemen Pengguna',title:edit?'Edit Pengguna':'Tambah Pengguna',subtitle:edit?user.Username+' · '+user.ID_User:'Buat akun baru untuk tim gudang.',size:'md',body:formMarkup(edit,user),footer:'<button class="btn btn--ghost" type="button" data-modal-close>Batal</button><button class="btn btn--primary" type="submit" form="users-form" data-submit>Simpan</button>',onMount:function(modal,close){
-      modal.querySelector('#users-form').addEventListener('submit',async function(ev){ev.preventDefault();
+      var usersForm=modal.querySelector('#users-form');if(!usersForm)return;usersForm.addEventListener('submit',async function(ev){ev.preventDefault();
         var error=modal.querySelector('#users-error'), submit=modal.querySelector('[data-submit]'); error.hidden=true;
         var pin=modal.querySelector('#u-pin').value;
         if(pin && pin.length<6){error.textContent='PIN minimal 6 karakter.';error.hidden=false;return;}
@@ -53,6 +53,6 @@
       });
     }});
   }
-  function mount(root){panel=root;if(!WMS.auth.isSupervisor()){root.innerHTML='<div class="locked-panel"><h3>Akses Terbatas</h3><p>Manajemen pengguna hanya tersedia untuk Supervisor.</p><button class="btn btn--primary" data-goto="inbound">Kembali ke Inbound</button></div>';return Promise.resolve();}root.innerHTML=template();root.querySelector('[data-action="refresh"]').onclick=load;root.querySelector('[data-action="create"]').onclick=function(){openForm(null);};root.querySelector('#users-body').addEventListener('click',function(e){var b=e.target.closest('[data-edit]');if(b)openForm(state.items.find(function(u){return u.ID_User===b.getAttribute('data-edit');}));});return load();}
+  function mount(root){panel=root;if(!WMS.auth.isSupervisor()){root.innerHTML='<div class="locked-panel"><h3>Akses Terbatas</h3><p>Manajemen pengguna hanya tersedia untuk Supervisor.</p><button class="btn btn--primary" data-goto="inbound">Kembali ke Inbound</button></div>';return Promise.resolve();}root.innerHTML=template();var refresh=root.querySelector('[data-action="refresh"]'),create=root.querySelector('[data-action="create"]'),body=root.querySelector('#users-body');if(refresh)refresh.onclick=load;if(create)create.onclick=function(){openForm(null);};if(body)body.addEventListener('click',function(e){var b=e.target.closest('[data-edit]');if(b)openForm(state.items.find(function(u){return u.ID_User===b.getAttribute('data-edit');}));});return load();}
   WMS.registerModule({id:'users',label:'Manajemen Pengguna',eyebrow:'Administrasi · Akses',title:'Manajemen Pengguna',description:'Kelola akun pengguna',requiresRole:'SUPERVISOR',mount:mount,refresh:load});
 })(window);

@@ -12,8 +12,9 @@
   var COLSPAN = 7;
   var state = { items: [], groups: [], expanded: {}, loaded: false };
   var panel = null;
-  var filterCtl = null;
   var activeStatusTab = 'PICKED';
+  var activeOtdFilter = '';
+  var searchQuery = '';
   var stockMap = null;
   var outboundSummary = null;
 
@@ -66,10 +67,10 @@
         '<div class="toolbar">' +
           ui.searchField('outbound-search', 'Cari ID, No DO, customer, SKUâ€¦') +
           '<div class="status-tabs" role="tablist" aria-label="Filter status outbound">' +
-            '<button type="button" class="status-tabs__tab is-active" role="tab" aria-selected="true" data-status-tab="PICKED">Perlu Dispatch (Picked) <span class="tab-badge tab-badge--task" data-tab-count="picked">0</span></button>' +
-            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="DISPATCHED">Dalam Pengiriman (Dispatched) <span class="tab-badge tab-badge--task" data-tab-count="dispatched">0</span></button>' +
-            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="DELIVERED">Delivered <span class="tab-badge" data-tab-count="delivered">0</span></button>' +
-            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status-tab="">Semua Order <span class="tab-badge" data-tab-count="all">0</span></button>' +
+            '<button type="button" class="status-tabs__tab is-active" role="tab" aria-selected="true" data-status="PICKED">Perlu Dispatch (Picked) <span class="tab-badge tab-badge--task" data-tab-count="picked">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status="DISPATCHED">Dalam Pengiriman (Dispatched) <span class="tab-badge tab-badge--task" data-tab-count="dispatched">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status="DELIVERED">Delivered <span class="tab-badge" data-tab-count="delivered">0</span></button>' +
+            '<button type="button" class="status-tabs__tab" role="tab" aria-selected="false" data-status="">Semua Order <span class="tab-badge" data-tab-count="all">0</span></button>' +
           '</div>' +
           '<select id="outbound-otd-filter" class="select select--sm" aria-label="Filter status OTD">' +
             '<option value="">Semua OTD</option>' +
@@ -171,6 +172,20 @@
     });
   }
 
+  function getFilteredData() {
+    var status = String(activeStatusTab || '').trim().toUpperCase();
+    var otd = String(activeOtdFilter || '').trim().toUpperCase();
+    var query = String(searchQuery || '').trim().toLowerCase();
+    return groupOutboundItems_(state.items).filter(function (group) {
+      var statuses = Object.keys(group.statuses).map(function (value) { return String(value).trim().toUpperCase(); });
+      var otds = Object.keys(group.otd).map(function (value) { return String(value).trim().toUpperCase(); });
+      var rowStatus = statuses.indexOf('PICKED') !== -1 ? 'PICKED' : statuses.indexOf('DISPATCHED') !== -1 ? 'DISPATCHED' : statuses.indexOf('DELIVERED') !== -1 ? 'DELIVERED' : (statuses[0] || '');
+      var rowOtd = otds.indexOf('ON_TIME') !== -1 ? 'ON_TIME' : otds.indexOf('DELAY') !== -1 ? 'DELAY' : (otds[0] || 'NONE');
+      var text = group.items.map(function (item) { return [item.ID_Outbound, item.No_DO, item.Tujuan_Customer, item.Kode_SKU, item.Nama_Barang, item.Status_Kirim, item.Status_OTD].join(' '); }).join(' ').toLowerCase();
+      return (!status || rowStatus === status) && (!otd || rowOtd === otd) && (!query || text.indexOf(query) !== -1);
+    });
+  }
+
   function renderRows() {
     updateStatusTabs();
     var tbody = panel && panel.querySelector('#outbound-body');
@@ -178,11 +193,15 @@
 
     if (!state.items.length) {
       tbody.innerHTML = ui.tableEmptyRow(COLSPAN, 'Belum ada order outbound', 'Buat picking order pertama atau tunggu data dari tim penjualan.');
-      if (filterCtl) filterCtl.apply();
+      var emptyCount = panel.querySelector('#outbound-count');
+      if (emptyCount) emptyCount.textContent = '0 order';
       return;
     }
 
     state.groups = groupOutboundItems_(state.items);
+    var visibleGroups = getFilteredData();
+    var visibleKeys = {};
+    visibleGroups.forEach(function (group) { visibleKeys[group.key] = true; });
     tbody.innerHTML = state.groups.map(function (group) {
       var statuses = Object.keys(group.statuses), otds = Object.keys(group.otd);
       var status = group.statuses.PICKED ? 'PICKED' : group.statuses.DISPATCHED ? 'DISPATCHED' : group.statuses.DELIVERED ? 'DELIVERED' : (statuses[0] || '');
@@ -210,7 +229,17 @@
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status.') +
       '</td></tr>';
-    if (filterCtl) filterCtl.apply();
+    tbody.querySelectorAll('tr[data-row]').forEach(function (row) {
+      var trigger = row.querySelector('[data-toggle-group]');
+      var key = trigger ? trigger.getAttribute('data-toggle-group') : '';
+      row.hidden = !visibleKeys[key];
+      var detail = tbody.querySelector('[data-detail-for="' + key + '"]');
+      if (detail) detail.hidden = row.hidden || !state.expanded[key];
+    });
+    var emptyRow = tbody.querySelector('[data-empty-row]');
+    if (emptyRow) emptyRow.hidden = visibleGroups.length > 0;
+    var count = panel.querySelector('#outbound-count');
+    if (count) count.textContent = visibleGroups.length + ' order';
   }
 
   function renderError(error) {
@@ -266,9 +295,13 @@
     ui.openModal({eyebrow:'Outbound · Tanggal',title:'Edit Tanggal Pengiriman',subtitle:group.noDo,body:body,
       footer:'<button type="button" class="btn btn--ghost" data-modal-close>Batal</button><button type="submit" class="btn btn--primary" form="outbound-dates-form" data-submit>Simpan Tanggal</button>',
       onMount:function(modal,close){
-        modal.querySelector('#outbound-dates-form').addEventListener('submit',async function(event){
+        var datesForm = modal.querySelector('#outbound-dates-form');
+        if (!datesForm) return;
+        datesForm.addEventListener('submit',async function(event){
           event.preventDefault(); var err=modal.querySelector('#edit-dates-error'); var submit=modal.querySelector('[data-submit]');
-          var targetValue=modal.querySelector('#edit-target-date').value; var actualValue=modal.querySelector('#edit-actual-date').value;
+          var targetInput=modal.querySelector('#edit-target-date'), actualInput=modal.querySelector('#edit-actual-date');
+          if(!err||!targetInput||!actualInput){ui.toast('Form tanggal tidak lengkap. Muat ulang modul lalu coba lagi.','danger');return;}
+          var targetValue=targetInput.value; var actualValue=actualInput.value;
           if(!targetValue&&!actualValue){err.textContent='Isi setidaknya satu tanggal.';err.hidden=false;return;}
           var params={noDo:group.noDo}; if(targetValue)params.tglTargetKirim=targetValue; if(actualValue)params.tglAktualTiba=actualValue;
           ui.setBusy(submit,true,'Menyimpan…');
@@ -381,11 +414,13 @@
           event.preventDefault();
           ui.showInlineError(errorBox, '');
 
-          var noDo = String(modal.querySelector('#picking-do').value || '').trim();
-          var tujuan = String(modal.querySelector('#picking-tujuan').value || '').trim();
+          var noDoInput=modal.querySelector('#picking-do'), tujuanInput=modal.querySelector('#picking-tujuan'), targetInput=modal.querySelector('#picking-target');
+          if(!noDoInput||!tujuanInput||!targetInput){ui.showInlineError(errorBox,'Form picking tidak lengkap. Buka kembali form lalu coba lagi.');return;}
+          var noDo = String(noDoInput.value || '').trim();
+          var tujuan = String(tujuanInput.value || '').trim();
           var kodeSku = String(skuInput.value || '').trim().toUpperCase();
           var qty = ui.num(qtyInput.value);
-          var target = String(modal.querySelector('#picking-target').value || '').trim();
+          var target = String(targetInput.value || '').trim();
 
           if (!noDo) {
             ui.showInlineError(errorBox, 'No Delivery Order wajib diisi.');
@@ -470,7 +505,8 @@
         '<span class="file-chip__name">' + ui.esc(value.name) + '</span>' +
         '<span class="file-chip__meta">' + ui.esc(WMS.file.formatSize(value.size)) + '</span>' +
         '<button type="button" class="file-chip__remove" data-file-remove aria-label="Hapus berkas">' + ui.ICONS.close + '</button>';
-      chip.querySelector('[data-file-remove]').addEventListener('click', clear);
+      var removeButton = chip.querySelector('[data-file-remove]');
+      if (removeButton) removeButton.addEventListener('click', clear);
       if (onValid) onValid(value);
     }
 
@@ -695,34 +731,31 @@
     panel = root;
     root.innerHTML = template();
 
-    filterCtl = ui.filterTable({
-      table: '#outbound-table',
-      search: '#outbound-search',
-      count: '#outbound-count',
-      countLabel: 'order',
-      filters: [
-        { selector: '[data-status-tab].is-active', attr: 'data-status', valueGetter: function () { return activeStatusTab; } },
-        { selector: '#outbound-otd-filter', attr: 'data-otd' }
-      ]
-    });
-
-    root.querySelectorAll('[data-status-tab]').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        root.querySelectorAll('[data-status-tab]').forEach(function (candidate) {
-          var selected = candidate === tab;
-          candidate.classList.toggle('is-active', selected);
-          candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
-        });
-        filterCtl.apply();
+    root.addEventListener('click', function (event) {
+      var tab = event.target.closest ? event.target.closest('.status-tabs [data-status]') : null;
+      if (!tab || !root.contains(tab)) return;
+      activeStatusTab = String(tab.getAttribute('data-status') || '').trim().toUpperCase();
+      root.querySelectorAll('.status-tabs [data-status]').forEach(function (candidate) {
+        var selected = candidate === tab;
+        candidate.classList.toggle('is-active', selected);
+        candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
       });
+      renderRows();
     });
-    root.querySelector('[data-action="refresh"]').addEventListener('click', function () {
+    var searchInput = root.querySelector('#outbound-search');
+    if (searchInput) searchInput.addEventListener('input', function () { searchQuery = searchInput.value || ''; renderRows(); });
+    var otdFilter = root.querySelector('#outbound-otd-filter');
+    if (otdFilter) otdFilter.addEventListener('change', function () { activeOtdFilter = otdFilter.value || ''; renderRows(); });
+    var refreshButton = root.querySelector('[data-action="refresh"]');
+    if (refreshButton) refreshButton.addEventListener('click', function () {
       load({ silent: false });
     });
 
-    root.querySelector('[data-action="picking"]').addEventListener('click', openPicking);
+    var pickingButton = root.querySelector('[data-action="picking"]');
+    if (pickingButton) pickingButton.addEventListener('click', openPicking);
 
-    root.querySelector('[data-action="sync-staging"]').addEventListener('click', async function (event) {
+    var syncButton = root.querySelector('[data-action="sync-staging"]');
+    if (syncButton) syncButton.addEventListener('click', async function (event) {
       var button = event.currentTarget;
       if (button.disabled) return;
       ui.setBusy(button, true, 'Menarik orderâ€¦');

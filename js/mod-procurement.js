@@ -301,7 +301,7 @@
       tbody.innerHTML = ui.tableEmptyRow(
         COLSPAN,
         'Belum ada pengajuan order',
-        'Buat pengajuan pertama melalui tombol “Buat Pengajuan”. Nomor surat dibuat otomatis.'
+        'Buat pengajuan pertama melalui tombol “Buat Pengajuan�?. Nomor surat dibuat otomatis.'
       );
       if (filterCtl) filterCtl.apply();
       return;
@@ -576,23 +576,26 @@
         var form = modal.querySelector('#procurement-form');
         var list = modal.querySelector('[data-item-list]');
         var addBtn = modal.querySelector('[data-add-item]');
+        if (!form || !list || !addBtn) return;
 
         function refreshSummary() {
           var totals = { qty: 0, harga: 0 };
           var rows = form.querySelectorAll('[data-item]');
 
           rows.forEach(function (row) {
-            var qty = ui.num(row.querySelector('.proc-item__qty').value);
-            var price = ui.num(row.querySelector('.proc-item__price').value);
+            var qtyInput=row.querySelector('.proc-item__qty'), priceInput=row.querySelector('.proc-item__price'), subtotalEl=row.querySelector('.proc-item__subtotal');
+            var qty = ui.num(qtyInput && qtyInput.value);
+            var price = ui.num(priceInput && priceInput.value);
             var subtotal = qty * price;
-            row.querySelector('.proc-item__subtotal').textContent = rupiah(subtotal);
+            if (subtotalEl) subtotalEl.textContent = rupiah(subtotal);
             totals.qty += qty;
             totals.harga += subtotal;
           });
 
-          var pct = ui.num(modal.querySelector('#proc-dp').value);
-          var durasi = ui.num(modal.querySelector('#proc-durasi').value);
-          var tanggalValue = modal.querySelector('#proc-tanggal').value;
+          var dpInput=modal.querySelector('#proc-dp'), durationInput=modal.querySelector('#proc-durasi'), dateInput=modal.querySelector('#proc-tanggal');
+          var pct = ui.num(dpInput && dpInput.value);
+          var durasi = ui.num(durationInput && durationInput.value);
+          var tanggalValue = dateInput ? dateInput.value : '';
           var due = durasi ? addDaysIso(tanggalValue, durasi) : '';
 
           modal.querySelector('[data-total-qty]').textContent = ui.formatQty(totals.qty);
@@ -674,19 +677,19 @@
   }
 
   function collectPayload(form) {
-    var tanggal = String(form.querySelector('#proc-tanggal').value || '').trim();
+    var tanggal = String((form.querySelector('#proc-tanggal') || {}).value || '').trim();
 
     if (!parseIsoDate(tanggal)) {
       throw new Error('Tanggal pengajuan wajib diisi dengan tanggal yang valid.');
     }
 
-    var perihal = String(form.querySelector('#proc-perihal').value || '').trim();
-    var pihakPertamaNama = String(form.querySelector('#proc-pihak1-nama').value || '').trim();
-    var pihakPertamaJabatan = String(form.querySelector('#proc-pihak1-jabatan').value || '').trim();
-    var pihakKeduaNama = String(form.querySelector('#proc-pihak2-nama').value || '').trim();
-    var pihakKeduaJabatan = String(form.querySelector('#proc-pihak2-jabatan').value || '').trim();
-    var persenDp = ui.num(form.querySelector('#proc-dp').value);
-    var durasiHari = ui.num(form.querySelector('#proc-durasi').value);
+    var perihal = String((form.querySelector('#proc-perihal') || {}).value || '').trim();
+    var pihakPertamaNama = String((form.querySelector('#proc-pihak1-nama') || {}).value || '').trim();
+    var pihakPertamaJabatan = String((form.querySelector('#proc-pihak1-jabatan') || {}).value || '').trim();
+    var pihakKeduaNama = String((form.querySelector('#proc-pihak2-nama') || {}).value || '').trim();
+    var pihakKeduaJabatan = String((form.querySelector('#proc-pihak2-jabatan') || {}).value || '').trim();
+    var persenDp = ui.num((form.querySelector('#proc-dp') || {}).value);
+    var durasiHari = ui.num((form.querySelector('#proc-durasi') || {}).value);
 
     if (!perihal) throw new Error('Perihal pengajuan wajib diisi.');
     if (!pihakPertamaNama) throw new Error('Nama Pihak Pertama wajib diisi.');
@@ -699,10 +702,12 @@
     var items = [];
 
     form.querySelectorAll('[data-item]').forEach(function (row, index) {
-      var kodeSku = String(row.querySelector('.proc-item__sku').value || '').trim().toUpperCase();
-      var namaBarang = String(row.querySelector('.proc-item__name').value || '').trim();
-      var qty = ui.num(row.querySelector('.proc-item__qty').value);
-      var hargaSatuan = ui.num(row.querySelector('.proc-item__price').value);
+      var skuInput=row.querySelector('.proc-item__sku'), nameInput=row.querySelector('.proc-item__name'), qtyInput=row.querySelector('.proc-item__qty'), priceInput=row.querySelector('.proc-item__price');
+      if (!skuInput || !nameInput || !qtyInput || !priceInput) throw new Error('Baris item #' + (index + 1) + ' tidak lengkap.');
+      var kodeSku = String(skuInput.value || '').trim().toUpperCase();
+      var namaBarang = String(nameInput.value || '').trim();
+      var qty = ui.num(qtyInput.value);
+      var hargaSatuan = ui.num(priceInput.value);
 
       if (!kodeSku && !namaBarang && !qty && !hargaSatuan) return;
 
@@ -1100,10 +1105,12 @@
       filters: [{ selector: '#procurement-filter', attr: 'data-status' }]
     });
 
-    root.querySelector('[data-action="refresh"]').addEventListener('click', function () {
+    var refreshButton = root.querySelector('[data-action="refresh"]');
+    if (refreshButton) refreshButton.addEventListener('click', function () {
       load({ silent: false });
     });
-    root.querySelector('[data-action="create"]').addEventListener('click', openCreate);
+    var createButton = root.querySelector('[data-action="create"]');
+    if (createButton) createButton.addEventListener('click', openCreate);
 
     var tbody = root.querySelector('#procurement-body');
     if (tbody) tbody.addEventListener('click', onRowAction);

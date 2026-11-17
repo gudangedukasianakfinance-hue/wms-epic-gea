@@ -506,7 +506,9 @@
       '<span class="file-chip__meta">' + ui.esc(WMS.file.formatSize(transferFile.size)) + '</span>' +
       '<button type="button" class="file-chip__remove" data-transfer-file-remove aria-label="Hapus berkas">' + ui.ICONS.close + '</button>';
 
-    chip.querySelector('[data-transfer-file-remove]').addEventListener('click', function () {
+    var removeButton = chip.querySelector('[data-transfer-file-remove]');
+    if (!removeButton) return;
+    removeButton.addEventListener('click', function () {
       transferFile = null;
       var input = panel.querySelector('#transfer-file');
       if (input) input.value = '';
@@ -767,7 +769,8 @@
       });
     }
 
-    root.querySelector('[data-action="refresh"]').addEventListener('click', refreshCurrent);
+    var refreshButton = root.querySelector('[data-action="refresh"]');
+    if (refreshButton) refreshButton.addEventListener('click', refreshCurrent);
 
     var kartuSelect = root.querySelector('#kartu-sku');
     if (kartuSelect) {
@@ -782,8 +785,10 @@
       });
     }
 
-    root.querySelector('#transfer-form').addEventListener('submit', submitTransfer);
-    root.querySelector('[data-transfer-reset]').addEventListener('click', resetTransferForm);
+    var transferForm = root.querySelector('#transfer-form');
+    if (transferForm) transferForm.addEventListener('submit', submitTransfer);
+    var resetButton = root.querySelector('[data-transfer-reset]');
+    if (resetButton) resetButton.addEventListener('click', resetTransferForm);
 
     bindTransferFile();
 

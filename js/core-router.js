@@ -706,7 +706,8 @@
       }, 180);
     }
 
-    element.querySelector('.toast__close').addEventListener('click', remove);
+    var closeButton = element.querySelector('.toast__close');
+    if (closeButton) closeButton.addEventListener('click', remove);
     root.appendChild(element);
     global.setTimeout(remove, 5500);
   }
