@@ -1,6 +1,6 @@
 /**
  * mod-inbound.js — Modul 1 Inbound (Putaway penerimaan)
- * Sumber data: Inbound_Log dengan status PENDING_PUTAWAY (dibuat AppSheet).
+ * Sumber data: seluruh Inbound_Log (PENDING_PUTAWAY & PUTAWAY_COMPLETED).
  */
 
 (function (global) {
@@ -136,9 +136,15 @@
       var status = String(item.Status_Inbound || '').trim().toUpperCase();
       var karantina = ui.num(item.Qty_Karantina);
       var isPending = status === 'PENDING_PUTAWAY';
+      var isCompleted = status === 'PUTAWAY_COMPLETED';
       var search = [
         item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, status
       ].join(' ').toLowerCase();
+      var action = isPending
+        ? '<button type="button" class="btn btn--primary btn--sm" data-putaway="' + ui.esc(item.ID_Inbound) + '">Alokasikan Rak</button>'
+        : (isCompleted
+          ? '<span class="muted" style="font-size:11.5px">Selesai</span>'
+          : '<span class="muted">—</span>');
 
       return '<tr data-row data-status="' + ui.esc(status) + '" data-qc="' + (karantina > 0 ? 'karantina' : 'lolos') + '" data-search="' + ui.esc(search) + '">' +
         '<td>' + ui.cellStack(item.ID_Inbound || '—', ui.formatDate(item.Tanggal)) + '</td>' +
@@ -151,9 +157,7 @@
         '<td class="actions-cell">' +
           '<div class="table-actions">' +
             ui.pdfLink(item.Link_PDF) +
-            (isPending
-              ? '<button type="button" class="btn btn--primary btn--sm" data-putaway="' + ui.esc(item.ID_Inbound) + '">Alokasikan Rak</button>'
-              : '<span class="muted" style="font-size:11.5px">Selesai</span>') +
+            action +
           '</div>' +
         '</td>' +
       '</tr>';
