@@ -1260,6 +1260,31 @@ body.auth-gate {
   background: #f8fafc;
 }
 
+.data-table tbody tr[data-row][data-kartu-sku] {
+  cursor: pointer;
+}
+
+.table-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-color);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.table-link:hover {
+  text-decoration: underline;
+}
+
+.table-link:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .data-table tbody tr[data-row] td:first-child {
   font-weight: 600;
   color: #0f172a;
@@ -2686,3 +2711,187 @@ body.auth-gate {
 .opname-sku-option small { color:var(--text-muted); }
 .opname-draft-card { margin-bottom:18px; }
 @media (max-width:720px) { .opname-sku-option { align-items:flex-start; flex-wrap:wrap; } }
+
+/* ==========================================================================
+   Modul 5 — Pengajuan Order & Surat Kesepakatan
+   ========================================================================== */
+
+.proc-items {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.proc-items__head,
+.proc-item {
+  display: grid;
+  grid-template-columns: 150px minmax(150px, 1fr) 82px 132px 132px 34px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+}
+
+.proc-items__head {
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.proc-item + .proc-item {
+  border-top: 1px solid var(--border);
+}
+
+.proc-item .input {
+  padding: 7px 9px;
+  font-size: 12.5px;
+}
+
+.proc-item .num {
+  text-align: right;
+}
+
+.proc-item__subtotal {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.proc-item__remove {
+  color: var(--danger);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.proc-item__remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.proc-items__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.proc-items__foot .muted {
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.proc-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.proc-summary > div {
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.proc-summary span {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.proc-summary strong {
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.proc-summary__dp {
+  background: var(--primary-light);
+  border-color: var(--primary-light);
+}
+
+.proc-detail-heading {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.proc-detail-table {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.proc-detail-table .data-table {
+  margin: 0;
+}
+
+.proc-inline-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  font-size: 12px;
+}
+
+.proc-inline-totals span {
+  color: var(--text-muted);
+}
+
+.proc-inline-totals strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 860px) {
+  .proc-items__head {
+    display: none;
+  }
+
+  .proc-item {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .proc-item__subtotal {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .proc-item__remove {
+    justify-self: end;
+  }
+
+  .proc-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .proc-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .proc-items__foot {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .proc-items__foot .muted {
+    text-align: left;
+  }
+}

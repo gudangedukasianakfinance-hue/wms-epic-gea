@@ -39,6 +39,7 @@
     { id: 'inbound', label: 'Inbound', caption: 'Putaway penerimaan', requiresRole: null },
     { id: 'outbound', label: 'Outbound', caption: 'Picking, dispatch & OTD', requiresRole: null },
     { id: 'inventory', label: 'Inventory & Transfer', caption: 'Stok, kartu stok & mutasi', requiresRole: null },
+    { id: 'procurement', label: 'Pengajuan Order', caption: 'Pengajuan & surat kesepakatan', requiresRole: null },
     { id: 'opname', label: 'Stock Opname', caption: 'Approval supervisor', requiresRole: 'SUPERVISOR' }
   ];
 

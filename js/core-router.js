@@ -2,7 +2,7 @@
  * core-router.js
  * ---------------------------------------------------------------------------
  * Mesin utama frontend single-core:
- *   - Navigasi 4 modul tanpa reload (tab router + hash)
+ *   - Navigasi 5 modul tanpa reload (tab router + hash)
  *   - State global & registry modul
  *   - Cache Master_Barang di localStorage (TTL 12 jam, instant UI + refresh)
  *   - Kumpulan helper UI: badge, tabel, filter, modal, toast, format
@@ -715,7 +715,18 @@
 
   /* ------------------------------------------------------------------------
    * Registry modul & router tab
+   *
+   * Modul yang terdaftar saat ini — masing-masing file mod-*.js memanggil
+   * WMS.registerModule() ketika dimuat:
+   *   inbound, outbound, inventory, procurement, opname, users.
+   *
+   * Router tidak memakai mapping hardcoded: tombol sidebar [data-module],
+   * panel [data-module-panel], dan deep-link #procurement otomatis terhubung
+   * begitu mod-procurement.js selesai dimuat.
    * ---------------------------------------------------------------------- */
+
+  /* Urutan resmi modul pada shell; dipakai untuk fallback deep-link. */
+  var MODULE_ORDER = ['inbound', 'outbound', 'inventory', 'procurement', 'opname', 'users'];
 
   function registerModule(definition) {
     if (!definition || !definition.id) return null;
@@ -747,6 +758,20 @@
     if (!def) return false;
     if (!def.requiresRole) return true;
     return roleRank(WMS.auth && WMS.auth.getRole()) >= roleRank(def.requiresRole);
+  }
+
+  /**
+   * Modul pertama yang terdaftar dan boleh diakses sesuai urutan shell.
+   * Dipakai ketika hash tidak valid / modul tidak tersedia.
+   *
+   * @return {string} ID modul atau string kosong.
+   */
+  function defaultModuleId() {
+    for (var i = 0; i < MODULE_ORDER.length; i++) {
+      var id = MODULE_ORDER[i];
+      if (state.modules[id] && canAccess(state.modules[id])) return id;
+    }
+    return Object.keys(state.modules)[0] || '';
   }
 
   function modulePanel(id) {
@@ -800,7 +825,24 @@
     var opts = options || {};
     var def = state.modules[id];
 
-    if (!def) return;
+    if (!def) {
+      // Panel shell tersedia tetapi skrip modul gagal dimuat / belum terdaftar.
+      var shellPanel = modulePanel(id);
+
+      if (shellPanel) {
+        document.querySelectorAll('[data-module-panel]').forEach(function (section) {
+          section.hidden = section.getAttribute('data-module-panel') !== id;
+        });
+        setActiveNav(id);
+        showFatal(
+          shellPanel,
+          new Error('Modul "' + id + '" belum terdaftar pada router. Muat ulang halaman untuk memuat ulang modul.'),
+          function () { global.location.reload(); }
+        );
+      }
+
+      return;
+    }
 
     if (!WMS.auth || !WMS.auth.getSession()) {
       WMS.auth.showLogin('');
@@ -887,10 +929,10 @@
     loadMasterData();
 
     var hash = String(global.location.hash || '').replace('#', '').trim().toLowerCase();
-    var target = state.modules[hash] && canAccess(state.modules[hash]) ? hash : 'inbound';
+    var target = state.modules[hash] && canAccess(state.modules[hash]) ? hash : defaultModuleId();
     if (hash === 'users' && String(WMS.auth && WMS.auth.getRole() || '').toUpperCase() !== 'SUPERVISOR') target = 'inbound';
 
-    if (!state.modules[target]) target = Object.keys(state.modules)[0];
+    if (!state.modules[target]) target = defaultModuleId();
     if (!target) return;
 
     activate(target, { silent: true });
