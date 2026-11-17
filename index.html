@@ -25,12 +25,24 @@
         '</svg>';
       frame.appendChild(badge);
     };
+
+    /* Fallback logo header portal: ganti <img> rusak dengan badge teks aman. */
+    window.wmsPortalLogoFallback = function (img, initials) {
+      if (!img || img.getAttribute('data-fallback') === '1') return;
+      img.setAttribute('data-fallback', '1');
+      var badge = document.createElement('span');
+      badge.className = 'portal-brand__mark';
+      badge.setAttribute('aria-hidden', 'true');
+      badge.textContent = initials || 'WMS';
+      if (img.parentNode) img.parentNode.replaceChild(badge, img);
+    };
   </script>
 </head>
 <body class="portal-body">
   <header class="portal-header">
     <div class="portal-brand">
-      <span class="portal-brand__mark" aria-hidden="true">WMS</span>
+      <img class="portal-brand__logo" src="assets/img/logo-anemone.png" alt="Logo Anemone"
+           onerror="wmsPortalLogoFallback(this, 'WMS')">
       <span>
         WMS Terpadu
         <small>CV EPIC &amp; PT GEA</small>
@@ -47,106 +59,30 @@
     </section>
 
     <div class="portal-grid">
-      <a class="portal-card portal-card--epic" href="cv-epic.html" aria-label="Masuk ke Gudang CV EPIC">
+      <a class="portal-card portal-card--epic portal-card--minimal" href="cv-epic.html" aria-label="Masuk ke Gudang CV EPIC">
         <div class="portal-card__stripe" aria-hidden="true"></div>
         <div class="portal-card__body">
-          <div class="portal-card__head">
-            <span class="portal-logo-frame">
-              <img src="assets/img/logo-epic.png" alt="Logo CV EPIC" onerror="wmsLogoSvgFallback(this, 'EPIC')">
-            </span>
-            <div>
-              <div class="portal-card__title">Gudang CV EPIC</div>
-              <span class="portal-card__code">EPIC</span>
-            </div>
-          </div>
-
-          <p class="portal-card__desc">Operasional gudang CV EPIC dengan aksen Corporate Blue / Navy. Database dan penyimpanan PDF terpisah pada GDrive CV EPIC.</p>
-
-          <ul class="portal-features">
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Putaway inbound &amp; antrean penerimaan
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Picking, dispatch &amp; KPI On-Time Delivery
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Stok real-time, kartu stok &amp; transfer
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Approval Stock Opname khusus Supervisor
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Pengajuan order &amp; cetak surat kesepakatan PDF
-            </li>
-          </ul>
-
-          <div class="portal-palette" aria-label="Pratinjau palet Corporate Blue">
-            <span class="swatch" style="background:#1E3A8A" title="#1E3A8A"></span>
-            <span class="swatch" style="background:#1D4ED8" title="#1D4ED8"></span>
-            <span class="swatch" style="background:#EFF6FF" title="#EFF6FF"></span>
-            <span class="swatch" style="background:#172554" title="#172554"></span>
-            <span class="palette-label">Corporate Blue / Navy</span>
-          </div>
+          <span class="portal-logo-frame portal-logo-frame--lg">
+            <img src="assets/img/logo-epic.png" alt="Logo CV EPIC" onerror="wmsLogoSvgFallback(this, 'EPIC')">
+          </span>
+          <div class="portal-card__title">Gudang CV EPIC</div>
         </div>
         <div class="portal-card__cta">
-          <span>Masuk ke Gudang CV EPIC</span>
+          <span>Masuk</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
         </div>
       </a>
 
-      <a class="portal-card portal-card--gea" href="pt-gea.html" aria-label="Masuk ke Gudang PT GEA">
+      <a class="portal-card portal-card--gea portal-card--minimal" href="pt-gea.html" aria-label="Masuk ke Gudang PT GEA">
         <div class="portal-card__stripe" aria-hidden="true"></div>
         <div class="portal-card__body">
-          <div class="portal-card__head">
-            <span class="portal-logo-frame">
-              <img src="assets/img/logo-gea.png" alt="Logo PT GEA" onerror="wmsLogoSvgFallback(this, 'GEA')">
-            </span>
-            <div>
-              <div class="portal-card__title">Gudang PT GEA</div>
-              <span class="portal-card__code">GEA</span>
-            </div>
-          </div>
-
-          <p class="portal-card__desc">Operasional gudang PT GEA dengan aksen Emerald Green / Forest Green. Database dan penyimpanan PDF terpisah pada GDrive PT GEA.</p>
-
-          <ul class="portal-features">
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Putaway inbound &amp; antrean penerimaan
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Picking, dispatch &amp; KPI On-Time Delivery
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Stok real-time, kartu stok &amp; transfer
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Approval Stock Opname khusus Supervisor
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
-              Pengajuan order &amp; cetak surat kesepakatan PDF
-            </li>
-          </ul>
-
-          <div class="portal-palette" aria-label="Pratinjau palet Emerald Green">
-            <span class="swatch" style="background:#065F46" title="#065F46"></span>
-            <span class="swatch" style="background:#047857" title="#047857"></span>
-            <span class="swatch" style="background:#ECFDF5" title="#ECFDF5"></span>
-            <span class="swatch" style="background:#022C22" title="#022C22"></span>
-            <span class="palette-label">Emerald Green / Forest</span>
-          </div>
+          <span class="portal-logo-frame portal-logo-frame--lg">
+            <img src="assets/img/logo-gea.png" alt="Logo PT GEA" onerror="wmsLogoSvgFallback(this, 'GEA')">
+          </span>
+          <div class="portal-card__title">Gudang PT GEA</div>
         </div>
         <div class="portal-card__cta">
-          <span>Masuk ke Gudang PT GEA</span>
+          <span>Masuk</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
         </div>
       </a>

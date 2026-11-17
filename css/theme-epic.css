@@ -1,19 +1,49 @@
 /* ==========================================================================
    theme-epic.css — CV EPIC
-   Palet: Corporate Blue / Navy
+   Palet: Oranye / Terracotta (selaras logo CV EPIC)
    ========================================================================== */
 
 :root {
-  --primary-color: #1e3a8a;
-  --primary-hover: #1d4ed8;
-  --primary-light: #eff6ff;
-  --sidebar-bg: #172554;
-  --badge-accent: #dbeafe;
+  --primary-color: #ea580c;
+  --primary-hover: #c2410c;
+  --primary-light: #fff7ed;
+  --sidebar-bg: #7c2d12;
+  --badge-accent: #f97316;
 }
 
 /* Aksen pratinjau untuk portal (index.html) */
 .portal-card--epic {
-  --card-accent: #1e3a8a;
-  --card-accent-soft: #eff6ff;
-  --card-deep: #172554;
+  --card-accent: #ea580c;
+  --card-accent-soft: #fff7ed;
+  --card-deep: #7c2d12;
+}
+
+/* --------------------------------------------------------------------------
+   Kontras teks pada komponen beraksen oranye.
+   Oranye #ea580c terlalu terang untuk teks kecil di latar putih, sehingga
+   teks aksen memakai oranye gelap; badge berlatar oranye penuh memakai
+   cokelat-oranye sangat gelap.
+   -------------------------------------------------------------------------- */
+
+.pill,
+.btn--secondary,
+.avatar {
+  color: #9a3412;
+}
+
+a,
+.link,
+.eyebrow,
+.table-link,
+.subnav__btn.is-active {
+  color: #9a3412;
+}
+
+.badge--accent {
+  color: #431407;
+}
+
+::selection {
+  background: var(--badge-accent);
+  color: #431407;
 }

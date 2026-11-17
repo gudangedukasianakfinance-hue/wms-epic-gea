@@ -2187,7 +2187,7 @@ body.auth-gate {
   flex-direction: column;
   background-color: #f5f7fb;
   background-image:
-    radial-gradient(60% 45% at 8% 0%, #eff6ff, transparent 65%),
+    radial-gradient(60% 45% at 8% 0%, #fff7ed, transparent 65%),
     radial-gradient(55% 40% at 100% 100%, #ecfdf5, transparent 70%);
 }
 
@@ -2220,6 +2220,14 @@ body.auth-gate {
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+.portal-brand__logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  max-width: 160px;
+  object-fit: contain;
 }
 
 .portal-brand small {
@@ -2295,6 +2303,12 @@ body.auth-gate {
   text-decoration: none;
 }
 
+.portal-card--epic {
+  --card-accent: #ea580c;
+  --card-accent-soft: #fff7ed;
+  --card-deep: #7c2d12;
+}
+
 .portal-card--gea {
   --card-accent: #065f46;
   --card-accent-soft: #ecfdf5;
@@ -2341,6 +2355,43 @@ body.auth-gate {
 
 .portal-logo-frame .brand-logo-svg {
   color: var(--card-accent);
+}
+
+/* Kartu portal minimalis — fokus pada logo & nama entitas */
+.portal-card--minimal .portal-card__body {
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 38px 26px 34px;
+  text-align: center;
+}
+
+.portal-logo-frame--lg {
+  width: 118px;
+  height: 118px;
+  padding: 14px;
+  border-radius: 24px;
+}
+
+.portal-logo-frame--lg img {
+  max-width: 88px;
+  max-height: 88px;
+}
+
+.portal-logo-frame--lg .brand-logo-svg svg {
+  width: 76px;
+  height: 76px;
+}
+
+.portal-card--minimal .portal-card__title {
+  font-size: 21px;
+}
+
+.portal-card--minimal .portal-card__cta {
+  justify-content: center;
+  gap: 8px;
+  background: var(--card-accent-soft);
+  color: var(--card-deep);
 }
 
 .portal-card__title {

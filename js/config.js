@@ -19,7 +19,7 @@
       company: 'CV EPIC',
       short: 'EPIC',
       theme: 'epic',
-      accent: '#1E3A8A',
+      accent: '#EA580C',
       logo: 'assets/img/logo-epic.png',
       page: 'cv-epic.html'
     },
