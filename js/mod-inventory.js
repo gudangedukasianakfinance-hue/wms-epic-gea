@@ -11,7 +11,7 @@
 
   var ui = WMS.ui;
   var STOCK_COLSPAN = 7;
-  var KARTU_COLSPAN = 10;
+  var KARTU_COLSPAN = 9;
   var state = {
     sub: 'stock',
     stockItems: [],
@@ -82,7 +82,7 @@
 
         '<div class="card">' +
           '<div class="card__head">' +
-            '<div><h3>Rincian Stok</h3><p>Posisi stok terkini per SKU beserta lokasi rak.</p></div>' +
+            '<div><h3>Rincian Stok</h3><p>Posisi stok terkini per SKU. Klik nama barang untuk membuka Kartu Stok Detail.</p></div>' +
             '<span class="pill" id="stock-count">0 SKU</span>' +
           '</div>' +
           '<div class="toolbar">' +
@@ -94,12 +94,12 @@
               '<option value="KARANTINA">Ada karantina</option>' +
             '</select>' +
             '<span class="toolbar__spacer"></span>' +
-            '<span class="toolbar__note">Sumber: <code>Stok_Gudang</code></span>' +
+            '<span class="toolbar__note">Urut A–Z · Sumber: <code>Stok_Gudang</code></span>' +
           '</div>' +
           '<div class="table-wrap">' +
             '<table class="data-table" id="stock-table">' +
               '<thead><tr>' +
-                '<th>SKU</th><th>Nama Barang</th><th>Lokasi Rak</th>' +
+                '<th>SKU</th><th>Nama Barang (A–Z)</th><th>Lokasi Rak</th>' +
                 '<th class="num">Stok Aktif</th><th class="num">Stok Karantina</th>' +
                 '<th>Status</th><th>Pembaruan Terakhir</th>' +
               '</tr></thead>' +
@@ -119,14 +119,14 @@
             '<select id="kartu-sku" class="select select--sm" data-sku-select data-sku-all="true" aria-label="Filter SKU kartu stok" style="min-width:240px">' +
               ui.skuSelectOptions('', true, 'Semua SKU') +
             '</select>' +
-            ui.searchField('kartu-search', 'Cari referensi, jenis, PIC…') +
+            ui.searchField('kartu-search', 'Cari outlet, referensi, jenis, PIC…') +
             '<span class="toolbar__spacer"></span>' +
             '<span class="toolbar__note">Urut kronologis · <code>Kartu_Stok</code></span>' +
           '</div>' +
           '<div class="table-wrap">' +
             '<table class="data-table" id="kartu-table">' +
               '<thead><tr>' +
-                '<th>Tanggal</th><th>ID Mutasi</th><th>SKU</th><th>Referensi</th><th>Jenis</th>' +
+                '<th>Tanggal</th><th>SKU</th><th>Nama Outlet / Keterangan</th><th>Jenis</th>' +
                 '<th class="num">Saldo Awal</th><th class="num">Masuk</th><th class="num">Keluar</th>' +
                 '<th class="num">Saldo Akhir</th><th>PIC</th>' +
               '</tr></thead>' +
@@ -211,6 +211,24 @@
     return ui.num(item.Stok_Aktif) <= threshold ? 'MENIPIS' : 'TERSEDIA';
   }
 
+  function compareStockRows(a, b) {
+    var namaA = String(a.Nama_Barang || '').trim();
+    var namaB = String(b.Nama_Barang || '').trim();
+    var byName = namaA.localeCompare(namaB, undefined, { sensitivity: 'base' });
+
+    if (byName !== 0) return byName;
+
+    return String(a.Kode_SKU || '').trim().localeCompare(
+      String(b.Kode_SKU || '').trim(),
+      undefined,
+      { sensitivity: 'base' }
+    );
+  }
+
+  function stockSort(items) {
+    return items.slice().sort(compareStockRows);
+  }
+
   function setStockStats() {
     if (!panel) return;
     var totalAktif = 0;
@@ -248,11 +266,18 @@
 
     tbody.innerHTML = state.stockItems.map(function (item) {
       var status = stockStatus(item);
-      var search = [item.Kode_SKU, item.Nama_Barang, item.Lokasi_Rak, status].join(' ').toLowerCase();
+      var kodeSku = String(item.Kode_SKU || '').trim();
+      var namaBarang = String(item.Nama_Barang || '').trim();
+      var search = [kodeSku, namaBarang, item.Lokasi_Rak, status].join(' ').toLowerCase();
+      var namaCell = kodeSku
+        ? '<button type="button" class="table-link" data-kartu-sku="' + ui.esc(kodeSku) + '" title="Buka Kartu Stok ' + ui.esc(namaBarang || kodeSku) + '">' +
+            ui.esc(namaBarang || '—') +
+          '</button>'
+        : ui.esc(namaBarang || '—');
 
-      return '<tr data-row data-status="' + ui.esc(status) + '" data-search="' + ui.esc(search) + '">' +
-        '<td class="nowrap">' + ui.esc(item.Kode_SKU || '—') + '</td>' +
-        '<td>' + ui.esc(item.Nama_Barang || '—') + '</td>' +
+      return '<tr data-row data-kartu-sku="' + ui.esc(kodeSku) + '" data-status="' + ui.esc(status) + '" data-search="' + ui.esc(search) + '">' +
+        '<td class="nowrap">' + ui.esc(kodeSku || '—') + '</td>' +
+        '<td>' + namaCell + '</td>' +
         '<td class="nowrap"><code>' + ui.esc(item.Lokasi_Rak || '—') + '</code></td>' +
         '<td class="num">' + ui.formatQty(item.Stok_Aktif) + '</td>' +
         '<td class="num ' + (ui.num(item.Stok_Karantina) > 0 ? 'num--neg' : '') + '">' + ui.formatQty(item.Stok_Karantina) + '</td>' +
@@ -282,7 +307,7 @@
 
     try {
       var data = await WMS.api.request('INVENTORY_LIST');
-      state.stockItems = data && Array.isArray(data.items) ? data.items : [];
+      state.stockItems = stockSort(data && Array.isArray(data.items) ? data.items : []);
       state.stockLoaded = true;
       setStockStats();
       renderStock();
@@ -322,15 +347,25 @@
     }
 
     tbody.innerHTML = state.kartuItems.map(function (item) {
+      var referensi = String(item.Referensi_ID || '').trim();
+      var namaOutlet = String(item.namaOutlet || '').trim() || referensi;
+      var noDokumen = String(item.noDokumen || '').trim();
+      var subtext = noDokumen || referensi;
+
+      // Hindari sub-teks yang mengulang nama outlet/keterangan utama.
+      if (subtext && namaOutlet.toUpperCase().indexOf(subtext.toUpperCase()) !== -1) {
+        subtext = '';
+      }
+
       var search = [
-        item.ID_Mutasi, item.Kode_SKU, item.Referensi_ID, item.Jenis_Transaksi, item.PIC
+        item.ID_Mutasi, item.Kode_SKU, referensi, item.namaOutlet, noDokumen,
+        item.Jenis_Transaksi, item.PIC
       ].join(' ').toLowerCase();
 
       return '<tr data-row data-search="' + ui.esc(search) + '">' +
         '<td class="nowrap muted">' + ui.esc(ui.formatDateTime(item.Tanggal)) + '</td>' +
-        '<td class="nowrap">' + ui.esc(item.ID_Mutasi || '—') + '</td>' +
         '<td class="nowrap">' + ui.esc(item.Kode_SKU || '—') + '</td>' +
-        '<td class="nowrap">' + ui.esc(item.Referensi_ID || '—') + '</td>' +
+        '<td>' + ui.cellStack(namaOutlet || '—', subtext) + '</td>' +
         '<td>' + ui.badge(item.Jenis_Transaksi) + '</td>' +
         '<td class="num">' + ui.formatQty(item.Saldo_Awal) + '</td>' +
         '<td class="num ' + (ui.num(item.Qty_Masuk) > 0 ? 'num--pos' : '') + '">' + ui.formatQty(item.Qty_Masuk) + '</td>' +
@@ -374,6 +409,45 @@
       }
       renderKartuError(error);
     }
+  }
+
+  /**
+   * Buka sub-tab Kartu Stok dan terapkan filter SKU secara otomatis.
+   *
+   * @param {string} kodeSku Kode SKU dari baris stok yang diklik.
+   */
+  function openKartuForSku(kodeSku) {
+    var sku = String(kodeSku || '').trim().toUpperCase();
+    if (!sku || !panel) return;
+
+    var select = panel.querySelector('#kartu-sku');
+
+    if (select) {
+      var matched = null;
+
+      Array.prototype.some.call(select.options, function (option) {
+        if (String(option.value || '').trim().toUpperCase() === sku) {
+          matched = option.value;
+          return true;
+        }
+        return false;
+      });
+
+      if (matched === null) {
+        var option = document.createElement('option');
+        option.value = sku;
+        option.textContent = sku;
+        select.appendChild(option);
+        matched = sku;
+      }
+
+      select.value = matched;
+    }
+
+    var wasLoaded = state.kartuLoaded;
+    showSub('kartu');
+
+    if (wasLoaded) return loadKartu({ silent: false });
   }
 
   /* ------------------------------------------------------------------------
@@ -683,6 +757,15 @@
         showSub(button.getAttribute('data-sub'));
       });
     });
+
+    var stockBody = root.querySelector('#stock-body');
+    if (stockBody) {
+      stockBody.addEventListener('click', function (event) {
+        var trigger = event.target.closest ? event.target.closest('[data-kartu-sku]') : null;
+        if (!trigger) return;
+        openKartuForSku(trigger.getAttribute('data-kartu-sku'));
+      });
+    }
 
     root.querySelector('[data-action="refresh"]').addEventListener('click', refreshCurrent);
 
