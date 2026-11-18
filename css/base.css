@@ -2936,6 +2936,45 @@ body.auth-gate {
   border-color: var(--primary-light);
 }
 
+/* Form dinamis: mode TANPA_KESEPAKATAN (pengajuan internal / PR) */
+.proc-hint {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.proc-form--tanpa .proc-agg {
+  display: none;
+}
+
+.proc-form--tanpa .proc-items__head,
+.proc-form--tanpa .proc-item {
+  grid-template-columns: 150px minmax(150px, 1fr) 82px 150px 34px;
+}
+
+.proc-form--tanpa .proc-col-subtotal {
+  display: none;
+}
+
+.proc-form--tanpa .proc-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.proc-form--tanpa .proc-summary__dp,
+.proc-form--tanpa .proc-summary__due {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .proc-form--tanpa .proc-item {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .proc-form--tanpa .proc-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .proc-detail-heading {
   margin: 18px 0 8px;
   font-size: 13px;
