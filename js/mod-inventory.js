@@ -805,6 +805,12 @@
     refresh: function () {
       if (state.sub === 'kartu') return loadKartu({ silent: true });
       return loadStock({ silent: true });
+    },
+    refreshAllData: async function () {
+      await Promise.all([
+        loadStock({ silent: true }),
+        loadKartu({ silent: true })
+      ]);
     }
   });
 })(window);

@@ -26,6 +26,7 @@
           '<p class="module-head__desc">Finalisasi penerimaan hasil RCV &amp; QC AppSheet. Posting <code>Qty_QC_Pass</code> ke stok aktif dan catat sisa reject ke stok karantina.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
+          '<button type="button" class="btn btn--secondary btn--sm" data-action="sync-putaway">' + ui.ICONS.refresh + ' Sync Putaway AppSheet</button>' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
         '</div>' +
       '</div>' +
@@ -372,6 +373,37 @@
     var refreshButton = root.querySelector('[data-action="refresh"]');
     if (refreshButton) refreshButton.addEventListener('click', function () {
       load({ silent: false });
+    });
+
+    var syncButton = root.querySelector('[data-action="sync-putaway"]');
+    if (syncButton) syncButton.addEventListener('click', async function (event) {
+      var button = event.currentTarget;
+      if (button.disabled) return;
+      ui.setBusy(button, true, 'Menyinkronkan…');
+      try {
+        var result = await WMS.api.request('SYNC_INBOUND_PUTAWAY');
+        var count = Number(result && result.syncedCount) || 0;
+        ui.toast(
+          count > 0
+            ? count + ' transaksi Putaway berhasil disinkronkan ke Stok Gudang dan Kartu Stok.'
+            : 'Semua data Putaway sudah sinkron.',
+          'success',
+          'Sinkronisasi selesai'
+        );
+        await load({ silent: false });
+        var modules = WMS.router && WMS.router.getModules ? WMS.router.getModules() : {};
+        var inventoryModule = modules.inventory;
+        if (inventoryModule && typeof inventoryModule.refresh === 'function') {
+          if (inventoryModule.refreshAllData) await inventoryModule.refreshAllData();
+          else await inventoryModule.refresh();
+        }
+      } catch (error) {
+        if (!WMS.api.isAuthError(error)) {
+          ui.toast((error && error.message) || 'Gagal menyinkronkan Putaway AppSheet.', 'danger');
+        }
+      } finally {
+        ui.setBusy(button, false);
+      }
     });
 
     var tbody = root.querySelector('#inbound-body');
