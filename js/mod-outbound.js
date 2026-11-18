@@ -9,7 +9,7 @@
   if (!WMS || !WMS.registerModule) return;
 
   var ui = WMS.ui;
-  var COLSPAN = 7;
+  var COLSPAN = 8;
   var state = { items: [], groups: [], expanded: {}, loaded: false };
   var panel = null;
   var activeStatusTab = 'PICKED';
@@ -17,8 +17,12 @@
   var searchQuery = '';
   var stockMap = null;
   var outboundSummary = null;
+  var leadTimeMap = null;
+  var leadTimeItems = [];
 
-  function template() {
+  var DEFAULT_HEADER_ACTIONS = '<button type="button" class="btn btn--secondary btn--sm" data-action="lead-time">Atur Lead Time Outlet</button>';
+
+  function template(presetHeaderActions) {
     return '' +
       '<div class="module-head">' +
         '<div>' +
@@ -27,6 +31,7 @@
           '<p class="module-head__desc">Buat picking order, unggah surat jalan saat dispatch, lalu konfirmasi kedatangan untuk menghitung KPI On-Time Delivery.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
+          (presetHeaderActions || DEFAULT_HEADER_ACTIONS) +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
           '<button type="button" class="btn btn--secondary btn--sm" data-action="sync-staging">' + ui.ICONS.refresh + ' Tarik Order Sales</button>' +
           '<button type="button" class="btn btn--primary btn--sm" data-action="picking">Buat Picking Order</button>' +
@@ -84,10 +89,10 @@
         '<div class="table-wrap">' +
           '<table class="data-table data-table--compact" id="outbound-table">' +
             '<thead><tr>' +
-              '<th>No DO / Tujuan</th>' +
+              '<th colspan="2">No DO / Tujuan</th>' +
               '<th>Barang</th>' +
               '<th class="num">Qty</th>' +
-              '<th>Jadwal Kirim</th>' +
+              '<th>Jadwal &amp; Lead Time</th>' +
               '<th>OTD</th>' +
               '<th>Status Kirim</th>' +
               '<th class="actions-cell">Aksi</th>' +
@@ -157,6 +162,398 @@
     return groups;
   }
 
+  /* ------------------------------------------------------------------------
+   * Master Lead Time Outlet (OUTLET_LEADTIME_LIST / OUTLET_LEADTIME_SAVE)
+   * ---------------------------------------------------------------------- */
+
+  function outletKey(name) {
+    return String(name == null ? '' : name).trim().toUpperCase();
+  }
+
+  function applyLeadTimeItems(items) {
+    leadTimeItems = Array.isArray(items) ? items : [];
+    leadTimeMap = {};
+
+    leadTimeItems.forEach(function (item) {
+      var key = outletKey(item && item.Nama_Outlet);
+      if (!key) return;
+      if (Object.prototype.hasOwnProperty.call(leadTimeMap, key)) return;
+      leadTimeMap[key] = ui.num(item.Lead_Time_Hari);
+    });
+  }
+
+  function loadLeadTimeMap(force) {
+    if (leadTimeMap && !force) return Promise.resolve(leadTimeMap);
+
+    return WMS.api.request('OUTLET_LEADTIME_LIST')
+      .then(function (data) {
+        applyLeadTimeItems(data && data.items);
+        return leadTimeMap;
+      })
+      .catch(function (error) {
+        if (WMS.api.isAuthError(error)) throw error;
+        leadTimeMap = leadTimeMap || {};
+        return leadTimeMap;
+      });
+  }
+
+  function leadTimeInfo(name) {
+    var key = outletKey(name);
+    var known = !!key && !!leadTimeMap &&
+      Object.prototype.hasOwnProperty.call(leadTimeMap, key);
+
+    return {
+      days: known ? ui.num(leadTimeMap[key]) : 0,
+      known: known
+    };
+  }
+
+  function leadTimeTag(name) {
+    var info = leadTimeInfo(name);
+
+    return '<span class="leadtime-tag' + (info.known ? '' : ' leadtime-tag--default') + '">' +
+      'Lead time: <strong>' + ui.esc(info.days) + ' hari</strong>' +
+      (info.known ? '' : ' <span class="muted">(default)</span>') +
+      '</span>';
+  }
+
+  function scheduleCell(group) {
+    var target = Object.keys(group.targets)[0] || '';
+    var actual = Object.keys(group.actuals)[0] || '';
+    var customer = Object.keys(group.customers)[0] || '';
+
+    return '<div class="outbound-schedule">' +
+      '<span class="outbound-schedule__target">Target Tiba: <strong>' + ui.esc(ui.formatDate(target)) + '</strong></span>' +
+      '<span class="outbound-schedule__meta">' + leadTimeTag(customer) +
+        '<span class="muted"> Â· Tiba: ' + ui.esc(ui.formatDate(actual)) + '</span></span>' +
+      '</div>';
+  }
+
+  function parseLeadTimeValue(value) {
+    var text = String(value == null ? '' : value).trim();
+
+    if (!/^\d+$/.test(text)) return null;
+
+    var days = parseInt(text, 10);
+
+    if (!isFinite(days) || days < 0 || days > 365) return null;
+
+    return days;
+  }
+
+  function openLeadTime() {
+    var body =
+      '<div class="leadtime-panel">' +
+        '<form id="outlet-create-form" class="leadtime-form" novalidate>' +
+          '<div class="field">' +
+            '<label for="outlet-new-name">Nama Outlet <span class="req">*</span></label>' +
+            '<input class="input" id="outlet-new-name" type="text" maxlength="150" placeholder="Contoh: Toko Nusa Jaya" autocomplete="off" required>' +
+          '</div>' +
+          '<div class="field">' +
+            '<label for="outlet-new-area">Wilayah / Kota</label>' +
+            '<input class="input" id="outlet-new-area" type="text" maxlength="100" placeholder="Contoh: Makassar" autocomplete="off">' +
+          '</div>' +
+          '<div class="field">' +
+            '<label for="outlet-new-lead">Lead Time (Hari)</label>' +
+            '<input class="input" id="outlet-new-lead" type="number" min="0" max="365" step="1" value="0">' +
+          '</div>' +
+          '<div class="field leadtime-form__action">' +
+            '<button type="submit" class="btn btn--primary" data-submit>Tambah Outlet</button>' +
+          '</div>' +
+        '</form>' +
+        '<div class="form-alert" id="outlet-create-error" hidden role="alert"></div>' +
+        '<div class="leadtime-toolbar">' +
+          ui.searchField('outlet-leadtime-search', 'Cari nama outlet atau wilayahâ€¦') +
+          '<span class="toolbar__spacer"></span>' +
+          '<span class="pill pill--muted" id="outlet-leadtime-count">0 outlet</span>' +
+          '<button type="button" class="btn btn--secondary btn--sm" data-action="recalc-otd">' +
+            ui.ICONS.refresh + ' Hitung Ulang OTD Semua Order' +
+          '</button>' +
+        '</div>' +
+        '<div class="form-alert" id="outlet-leadtime-error" hidden role="alert"></div>' +
+        '<div class="leadtime-table-wrap">' +
+          '<table class="data-table data-table--compact" id="outlet-leadtime-table">' +
+            '<thead><tr>' +
+              '<th>Nama Outlet</th>' +
+              '<th>Wilayah / Kota</th>' +
+              '<th class="num">Lead Time (Hari)</th>' +
+              '<th class="actions-cell">Simpan</th>' +
+            '</tr></thead>' +
+            '<tbody id="outlet-leadtime-body">' + ui.tableLoadingRow(4, 4) + '</tbody>' +
+          '</table>' +
+        '</div>' +
+        '<div class="confirm-panel">' + ui.ICONS.info +
+          '<span>Lead time dihitung dalam hari kalender: <strong>Target Tiba = tanggal dispatch + lead time</strong>. ' +
+          'Perubahan master hanya memengaruhi dispatch berikutnya â€” gunakan <strong>Hitung Ulang OTD Semua Order</strong> untuk menyelaraskan order yang sudah ada.</span>' +
+        '</div>' +
+      '</div>';
+
+    ui.openModal({
+      eyebrow: 'Outbound Â· Lead Time',
+      title: 'Master Lead Time Pengiriman Outlet',
+      subtitle: 'Atur lead time per outlet, tambah outlet baru, dan selaraskan target OTD.',
+      size: 'xl',
+      body: body,
+      footer:
+        '<button type="button" class="btn btn--ghost" data-action="reload-outlets">Muat Ulang Data</button>' +
+        '<button type="button" class="btn btn--primary" data-modal-close>Tutup</button>',
+      onMount: function (modal, close) {
+        var createForm = modal.querySelector('#outlet-create-form');
+        var createError = modal.querySelector('#outlet-create-error');
+        var listError = modal.querySelector('#outlet-leadtime-error');
+        var listBody = modal.querySelector('#outlet-leadtime-body');
+        var searchInput = modal.querySelector('#outlet-leadtime-search');
+        var countEl = modal.querySelector('#outlet-leadtime-count');
+        var recalcButton = modal.querySelector('[data-action="recalc-otd"]');
+        var reloadButton = modal.querySelector('[data-action="reload-outlets"]');
+        var createSubmit = modal.querySelector('#outlet-create-form [data-submit]');
+
+        function findOutlet(id) {
+          var key = String(id == null ? '' : id).trim().toUpperCase();
+
+          return leadTimeItems.find(function (item) {
+            return String(item && item.ID_Outlet).trim().toUpperCase() === key;
+          }) || null;
+        }
+
+        function applyOutletFilter() {
+          if (!listBody) return;
+
+          var query = String(searchInput && searchInput.value || '').trim().toLowerCase();
+          var visible = 0;
+
+          listBody.querySelectorAll('tr[data-outlet-row]').forEach(function (row) {
+            var show = !query || String(row.getAttribute('data-search') || '').indexOf(query) !== -1;
+            row.hidden = !show;
+            if (show) visible++;
+          });
+
+          var emptyRow = listBody.querySelector('[data-empty-row]');
+          if (emptyRow) emptyRow.hidden = visible > 0;
+          if (countEl) countEl.textContent = visible + ' outlet';
+        }
+
+        function renderOutletRows() {
+          if (!listBody) return;
+
+          if (!leadTimeItems.length) {
+            listBody.innerHTML = ui.tableEmptyRow(4, 'Belum ada outlet', 'Tambahkan outlet baru atau muat ulang untuk menarik nama dari Outbound_Log.');
+            applyOutletFilter();
+            return;
+          }
+
+          listBody.innerHTML = leadTimeItems.map(function (item) {
+            var name = String(item && item.Nama_Outlet || '').trim();
+            var id = String(item && item.ID_Outlet || '').trim();
+            var area = String(item && item.Wilayah_Kota || '');
+            var days = ui.num(item && item.Lead_Time_Hari);
+            var search = [name, area, id].join(' ').toLowerCase();
+
+            return '<tr data-outlet-row data-search="' + ui.esc(search) + '">' +
+              '<td><strong>' + ui.esc(name) + '</strong>' +
+                (id ? '<span class="muted leadtime-id">' + ui.esc(id) + '</span>' : '') + '</td>' +
+              '<td><input class="input input--inline" type="text" maxlength="100" data-outlet-area value="' + ui.esc(area) + '" aria-label="Wilayah / kota ' + ui.esc(name) + '"></td>' +
+              '<td class="num"><input class="input input--inline input--number" type="number" min="0" max="365" step="1" data-outlet-lead value="' + ui.esc(days) + '" aria-label="Lead time hari ' + ui.esc(name) + '"></td>' +
+              '<td class="actions-cell"><button type="button" class="btn btn--secondary btn--sm" data-save-outlet="' + ui.esc(id) + '">Simpan</button></td>' +
+              '</tr>';
+          }).join('') +
+            '<tr class="table-state" data-empty-row hidden><td colspan="4">' +
+              ui.emptyState('Tidak ada outlet', 'Ubah kata kunci pencarian.') +
+            '</td></tr>';
+          applyOutletFilter();
+        }
+
+        async function loadOutletList() {
+          if (!listBody) return;
+
+          listBody.innerHTML = ui.tableLoadingRow(4, 4);
+          if (searchInput) searchInput.value = '';
+          ui.showInlineError(listError, '');
+
+          try {
+            var data = await WMS.api.request('OUTLET_LEADTIME_LIST');
+            applyLeadTimeItems(data && data.items);
+            renderOutletRows();
+            renderRows();
+          } catch (error) {
+            if (WMS.api.isAuthError(error)) {
+              close('auth');
+              return;
+            }
+            listBody.innerHTML = ui.tableErrorRow(4, (error && error.message) || 'Daftar outlet gagal dimuat.');
+            ui.bindRetry(listBody, loadOutletList);
+          }
+        }
+
+        async function saveOutletRow(button) {
+          var row = button.closest ? button.closest('tr[data-outlet-row]') : null;
+          var item = findOutlet(button.getAttribute('data-save-outlet'));
+
+          if (!row || !item) {
+            ui.showInlineError(listError, 'Baris outlet tidak ditemukan. Muat ulang daftar lalu coba lagi.');
+            return;
+          }
+
+          var areaInput = row.querySelector('[data-outlet-area]');
+          var leadInput = row.querySelector('[data-outlet-lead]');
+          var lead = parseLeadTimeValue(leadInput && leadInput.value);
+
+          ui.showInlineError(listError, '');
+
+          if (lead === null) {
+            ui.showInlineError(listError, 'Lead time harus bilangan bulat antara 0 dan 365 hari.');
+            if (leadInput) leadInput.focus();
+            return;
+          }
+
+          ui.setBusy(button, true, 'Menyimpanâ€¦');
+
+          try {
+            var result = await WMS.api.request('OUTLET_LEADTIME_SAVE', {
+              idOutlet: item.ID_Outlet,
+              namaOutlet: item.Nama_Outlet,
+              wilayahKota: areaInput ? String(areaInput.value || '').trim() : '',
+              leadTimeHari: lead
+            });
+            var saved = result && result.outlet ? result.outlet : {
+              ID_Outlet: item.ID_Outlet,
+              Nama_Outlet: item.Nama_Outlet,
+              Wilayah_Kota: areaInput ? String(areaInput.value || '').trim() : '',
+              Lead_Time_Hari: lead,
+              Status_Aktif: item.Status_Aktif
+            };
+
+            applyLeadTimeItems(leadTimeItems.map(function (candidate) {
+              return String(candidate && candidate.ID_Outlet) === String(item.ID_Outlet) ? saved : candidate;
+            }));
+            row.setAttribute('data-search', [
+              saved.Nama_Outlet || item.Nama_Outlet,
+              saved.Wilayah_Kota || '',
+              saved.ID_Outlet || item.ID_Outlet
+            ].join(' ').toLowerCase());
+            applyOutletFilter();
+            renderRows();
+            ui.toast('Lead time "' + (item.Nama_Outlet || '') + '" disimpan (' + lead + ' hari).', 'success', 'Master lead time');
+          } catch (error) {
+            if (WMS.api.isAuthError(error)) {
+              close('auth');
+              return;
+            }
+            ui.showInlineError(listError, (error && error.message) || 'Lead time gagal disimpan.');
+          } finally {
+            ui.setBusy(button, false);
+          }
+        }
+
+        if (listBody) {
+          listBody.addEventListener('click', function (event) {
+            var button = event.target.closest ? event.target.closest('[data-save-outlet]') : null;
+            if (button) saveOutletRow(button);
+          });
+        }
+
+        if (searchInput) searchInput.addEventListener('input', applyOutletFilter);
+
+        if (createForm) {
+          createForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            ui.showInlineError(createError, '');
+
+            var nameInput = modal.querySelector('#outlet-new-name');
+            var areaInput = modal.querySelector('#outlet-new-area');
+            var leadInput = modal.querySelector('#outlet-new-lead');
+            var name = nameInput ? String(nameInput.value || '').trim() : '';
+            var lead = parseLeadTimeValue(leadInput && leadInput.value);
+
+            if (!name) {
+              ui.showInlineError(createError, 'Nama outlet wajib diisi.');
+              if (nameInput) nameInput.focus();
+              return;
+            }
+
+            if (lead === null) {
+              ui.showInlineError(createError, 'Lead time harus bilangan bulat antara 0 dan 365 hari.');
+              if (leadInput) leadInput.focus();
+              return;
+            }
+
+            ui.setBusy(createSubmit, true, 'Menyimpanâ€¦');
+
+            try {
+              var result = await WMS.api.request('OUTLET_LEADTIME_SAVE', {
+                namaOutlet: name,
+                wilayahKota: areaInput ? String(areaInput.value || '').trim() : '',
+                leadTimeHari: lead
+              });
+              createForm.reset();
+              if (leadInput) leadInput.value = '0';
+              ui.toast(
+                result && result.created === false
+                  ? 'Outlet "' + name + '" sudah terdaftar; data master diperbarui.'
+                  : 'Outlet "' + name + '" berhasil ditambahkan.',
+                'success',
+                'Master lead time'
+              );
+              await loadOutletList();
+            } catch (error) {
+              if (WMS.api.isAuthError(error)) {
+                close('auth');
+                return;
+              }
+              ui.showInlineError(createError, (error && error.message) || 'Outlet baru gagal disimpan.');
+            } finally {
+              ui.setBusy(createSubmit, false);
+            }
+          });
+        }
+
+        if (reloadButton) reloadButton.addEventListener('click', loadOutletList);
+
+        if (recalcButton) {
+          if (WMS.auth && typeof WMS.auth.isSupervisor === 'function' && !WMS.auth.isSupervisor()) {
+            recalcButton.disabled = true;
+            recalcButton.title = 'Hitung ulang OTD hanya dapat dijalankan oleh Supervisor.';
+            recalcButton.insertAdjacentHTML('afterend', '<span class="muted" style="font-size:11px">Khusus Supervisor</span>');
+          }
+
+          recalcButton.addEventListener('click', async function () {
+            if (recalcButton.disabled) return;
+
+            ui.showInlineError(listError, '');
+            ui.setBusy(recalcButton, true, 'Menghitung ulangâ€¦');
+
+            try {
+              var result = await WMS.api.request('OUTBOUND_RECALC_OTD', { scope: 'ALL' });
+              var processed = Number(result && result.processedCount) || 0;
+              var updated = Number(result && result.updatedCount) || 0;
+              var onTime = Number(result && result.onTimeCount) || 0;
+              var delay = Number(result && result.delayCount) || 0;
+
+              ui.toast(
+                processed + ' baris diperiksa, ' + updated + ' baris diperbarui (ON_TIME ' + onTime + ' Â· DELAY ' + delay + ').',
+                'success',
+                'OTD dihitung ulang'
+              );
+              leadTimeMap = null;
+              await loadOutletList();
+              await load({ silent: true });
+            } catch (error) {
+              if (WMS.api.isAuthError(error)) {
+                close('auth');
+                return;
+              }
+              ui.showInlineError(listError, (error && error.message) || 'Perhitungan ulang OTD gagal.');
+            } finally {
+              ui.setBusy(recalcButton, false);
+            }
+          });
+        }
+
+        loadOutletList();
+      }
+    });
+  }
+
   function updateStatusTabs() {
     if (!panel) return;
     var groups = groupOutboundItems_(state.items);
@@ -218,13 +615,13 @@
       if (group.statuses.DELIVERED && !group.statuses.PICKED && !group.statuses.DISPATCHED) action += '<span class="muted" style="font-size:11.5px">Selesai</span>';
       action += '<button type="button" class="btn btn--ghost btn--sm" data-edit-dates="'+ui.esc(first.ID_Outbound)+'">Edit Tanggal</button>';
       var detailRows = group.items.map(function (item) {
-        return '<tr><td>'+ui.esc(item.ID_Outbound||'—')+'</td><td>'+ui.esc(item.Kode_SKU||'—')+'</td><td>'+ui.esc(item.Nama_Barang||'—')+'</td><td class="num">'+ui.formatQty(item.Qty)+'</td></tr>';
+        return '<tr><td>'+ui.esc(item.ID_Outbound||'ï¿½')+'</td><td>'+ui.esc(item.Kode_SKU||'ï¿½')+'</td><td>'+ui.esc(item.Nama_Barang||'ï¿½')+'</td><td class="num">'+ui.formatQty(item.Qty)+'</td><td>'+ui.esc(ui.formatDate(item.Tgl_Target_Kirim))+'</td></tr>';
       }).join('');
       return '<tr data-row data-status="'+ui.esc(status)+'" data-otd="'+ui.esc(otd||'NONE')+'" data-search="'+ui.esc(search)+'">'+
         '<td class="outbound-group-toggle" colspan="2"><button type="button" class="outbound-expand" data-toggle-group="'+ui.esc(group.key)+'" aria-expanded="'+expanded+'"><span class="outbound-expand__arrow">'+(expanded?'&#9662;':'&#9656;')+'</span><strong>'+ui.esc(group.noDo)+'</strong><span class="muted">'+ui.esc(customer)+'</span></button></td>'+
         '<td><button type="button" class="outbound-summary-toggle" data-toggle-group="'+ui.esc(group.key)+'" aria-expanded="'+expanded+'">'+group.items.length+' Item SKU &bull; Total '+ui.formatNumber(group.qty)+' pcs</button></td>'+
-        '<td class="num">'+ui.formatNumber(group.qty)+'</td><td>'+ui.cellStack(ui.formatDate(target),'Tiba: '+ui.formatDate(actual))+'</td><td>'+(otd?ui.badge(otd):'<span class="muted">—</span>')+'</td><td>'+ui.badge(status)+'</td><td class="actions-cell"><div class="table-actions">'+ui.pdfLink(Object.keys(group.links)[0])+action+'</div></td></tr>'+
-        '<tr class="outbound-detail-row" data-detail-for="'+ui.esc(group.key)+'" '+(expanded?'':'hidden')+'><td colspan="'+COLSPAN+'"><div class="outbound-detail-wrap"><table class="data-table data-table--compact"><thead><tr><th>ID Outbound</th><th>Kode SKU</th><th>Nama Barang</th><th class="num">Qty</th></tr></thead><tbody>'+detailRows+'</tbody></table></div></td></tr>';
+        '<td class="num">'+ui.formatNumber(group.qty)+'</td><td>'+scheduleCell(group)+'</td><td>'+(otd?ui.badge(otd):'<span class="muted">ï¿½</span>')+'</td><td>'+ui.badge(status)+'</td><td class="actions-cell"><div class="table-actions">'+ui.pdfLink(Object.keys(group.links)[0])+action+'</div></td></tr>'+
+        '<tr class="outbound-detail-row" data-detail-for="'+ui.esc(group.key)+'" '+(expanded?'':'hidden')+'><td colspan="'+COLSPAN+'"><div class="outbound-detail-meta">'+leadTimeTag(customer)+'<span class="muted">Target Tiba: '+ui.esc(ui.formatDate(target))+'</span><span class="muted">Tiba: '+ui.esc(ui.formatDate(actual))+'</span></div><div class="outbound-detail-wrap"><table class="data-table data-table--compact"><thead><tr><th>ID Outbound</th><th>Kode SKU</th><th>Nama Barang</th><th class="num">Qty</th><th>Target Tiba</th></tr></thead><tbody>'+detailRows+'</tbody></table></div></td></tr>';
     }).join('') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status.') +
@@ -256,7 +653,11 @@
     if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(COLSPAN, 5);
 
     try {
-      var data = await WMS.api.request('OUTBOUND_LIST');
+      var results = await Promise.all([
+        WMS.api.request('OUTBOUND_LIST'),
+        loadLeadTimeMap()
+      ]);
+      var data = results[0];
       state.items = data && Array.isArray(data.items) ? data.items : [];
       outboundSummary = data && data.summary ? data.summary : null;
       state.loaded = true;
@@ -292,7 +693,7 @@
       '<div class="field"><label for="edit-target-date">Tanggal Kirim / Target</label><input class="input" id="edit-target-date" type="date" value="'+ui.esc(target)+'"></div>' +
       '<div class="field"><label for="edit-actual-date">Tanggal Aktual Terima</label><input class="input" id="edit-actual-date" type="date" value="'+ui.esc(actual)+'"></div>' +
       '<div class="form-alert" id="edit-dates-error" hidden role="alert"></div></form>';
-    ui.openModal({eyebrow:'Outbound · Tanggal',title:'Edit Tanggal Pengiriman',subtitle:group.noDo,body:body,
+    ui.openModal({eyebrow:'Outbound ï¿½ Tanggal',title:'Edit Tanggal Pengiriman',subtitle:group.noDo,body:body,
       footer:'<button type="button" class="btn btn--ghost" data-modal-close>Batal</button><button type="submit" class="btn btn--primary" form="outbound-dates-form" data-submit>Simpan Tanggal</button>',
       onMount:function(modal,close){
         var datesForm = modal.querySelector('#outbound-dates-form');
@@ -304,7 +705,7 @@
           var targetValue=targetInput.value; var actualValue=actualInput.value;
           if(!targetValue&&!actualValue){err.textContent='Isi setidaknya satu tanggal.';err.hidden=false;return;}
           var params={noDo:group.noDo}; if(targetValue)params.tglTargetKirim=targetValue; if(actualValue)params.tglAktualTiba=actualValue;
-          ui.setBusy(submit,true,'Menyimpan…');
+          ui.setBusy(submit,true,'Menyimpanï¿½');
           try{await WMS.api.request('OUTBOUND_UPDATE_DATES',params);close('saved');ui.toast('Tanggal seluruh item '+group.noDo+' berhasil diperbarui.','success');await load({silent:false});}
           catch(error){if(WMS.api.isAuthError(error)){close('auth');return;}ui.setBusy(submit,false);err.textContent=error.message||'Tanggal gagal diperbarui.';err.hidden=false;}
         });
@@ -560,7 +961,8 @@
       '<div class="detail"><span class="detail__label">Tujuan</span><span class="detail__value">' + ui.esc(item.Tujuan_Customer || 'â€”') + '</span></div>' +
       '<div class="detail"><span class="detail__label">Qty</span><span class="detail__value">' + ui.formatQty(item.Qty) + ' unit</span></div>' +
       '<div class="detail detail--full"><span class="detail__label">Barang</span><span class="detail__value">' + ui.esc(item.Kode_SKU || 'â€”') + ' Â· ' + ui.esc(item.Nama_Barang || '') + '</span></div>' +
-      '<div class="detail"><span class="detail__label">Target Kirim</span><span class="detail__value">' + ui.esc(ui.formatDate(item.Tgl_Target_Kirim)) + '</span></div>' +
+      '<div class="detail"><span class="detail__label">Lead Time Outlet</span><span class="detail__value">' + leadTimeTag(item.Tujuan_Customer) + '</span></div>' +
+      '<div class="detail"><span class="detail__label">Target Tiba</span><span class="detail__value">' + ui.esc(ui.formatDate(item.Tgl_Target_Kirim)) + '</span></div>' +
       '<div class="detail"><span class="detail__label">Status Kirim</span><span class="detail__value">' + ui.badge(item.Status_Kirim) + '</span></div>' +
     '</div>';
   }
@@ -729,7 +1131,9 @@
 
   function mount(root) {
     panel = root;
-    root.innerHTML = template();
+    var presetHeader = root.querySelector('template[data-outbound-header-actions]');
+    var presetActions = presetHeader ? String(presetHeader.innerHTML || '').trim() : '';
+    root.innerHTML = template(presetActions);
 
     root.addEventListener('click', function (event) {
       var tab = event.target.closest ? event.target.closest('.status-tabs [data-status]') : null;
@@ -753,6 +1157,9 @@
 
     var pickingButton = root.querySelector('[data-action="picking"]');
     if (pickingButton) pickingButton.addEventListener('click', openPicking);
+
+    var leadTimeButton = root.querySelector('[data-action="lead-time"]');
+    if (leadTimeButton) leadTimeButton.addEventListener('click', openLeadTime);
 
     var syncButton = root.querySelector('[data-action="sync-staging"]');
     if (syncButton) syncButton.addEventListener('click', async function (event) {

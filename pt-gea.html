@@ -166,7 +166,11 @@
 
       <main class="content" id="module-root">
         <section class="module" data-module-panel="inbound" hidden></section>
-        <section class="module" data-module-panel="outbound" hidden></section>
+        <section class="module" data-module-panel="outbound" hidden>
+          <template data-outbound-header-actions>
+            <button type="button" class="btn btn--secondary btn--sm" data-action="lead-time">Atur Lead Time Outlet</button>
+          </template>
+        </section>
         <section class="module" data-module-panel="inventory" hidden></section>
         <section class="module" data-module-panel="procurement" hidden></section>
         <section class="module" data-module-panel="opname" hidden></section>
