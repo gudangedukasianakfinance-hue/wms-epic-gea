@@ -2824,6 +2824,15 @@ body.auth-gate {
 .opname-sku-option > span:nth-child(2) { display:grid; flex:1; }
 .opname-sku-option small { color:var(--text-muted); }
 .opname-draft-card { margin-bottom:18px; }
+.opname-progress { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.opname-session-row { cursor:pointer; }
+.opname-session-row:hover { background:var(--surface-muted); }
+.opname-session-row.is-active { background:var(--primary-light); }
+.opname-session-row:focus-visible { outline:2px solid var(--primary-color); outline-offset:-2px; }
+.opname-session-progress { display:flex; align-items:center; gap:8px; min-width:160px; }
+.opname-session-progress__bar { flex:1; height:6px; background:var(--surface-muted); border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+.opname-session-progress__bar > span { display:block; height:100%; background:var(--primary-color); border-radius:inherit; }
+.opname-detail-card { margin-top:18px; }
 @media (max-width:720px) { .opname-sku-option { align-items:flex-start; flex-wrap:wrap; } }
 
 /* ==========================================================================

@@ -1,5 +1,9 @@
 /**
  * mod-opname.js — Modul 4 Stock Opname (Approval Supervisor)
+ *
+ * Tabel utama menampilkan perintah SO per sesi/tanggal. Klik sesi untuk
+ * membuka daftar seluruh item, memfilter status hitung, dan menyetujui hasil
+ * SO sehingga Stok_Gudang + Kartu_Stok diperbarui oleh backend.
  */
 
 (function (global) {
@@ -9,10 +13,21 @@
   if (!WMS || !WMS.registerModule) return;
 
   var ui = WMS.ui;
-  var COLSPAN = 8;
-  var state = { items: [], drafts: [], stocks: [], loaded: false, locked: false };
+  var SESSION_COLSPAN = 5;
+  var ITEM_COLSPAN = 9;
+  var state = {
+    items: [],
+    drafts: [],
+    active: [],
+    sessions: [],
+    selectedSession: null,
+    itemFilter: '',
+    stocks: [],
+    progress: null,
+    loaded: false,
+    locked: false
+  };
   var panel = null;
-  var filterCtl = null;
 
   function template() {
     return '' +
@@ -23,6 +38,7 @@
           '<p class="module-head__desc">Terbitkan perintah hitung untuk tim lapangan dan tinjau hasil fisik dari AppSheet.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
+          '<button type="button" class="btn btn--secondary btn--sm" data-action="sync-so">' + ui.ICONS.refresh + ' Sync SO AppSheet</button>' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
           '<button type="button" class="btn btn--primary btn--sm" data-action="create">+ Buat Perintah SO</button>' +
         '</div>' +
@@ -32,7 +48,7 @@
         '<article class="stat-card stat-card--accent">' +
           '<span class="stat-card__label">Menunggu Approval</span>' +
           '<strong class="stat-card__value" data-stat="pending">—</strong>' +
-          '<span class="stat-card__meta">Sesi PENDING_APPROVAL</span>' +
+          '<span class="stat-card__meta">Item PENDING_APPROVAL</span>' +
         '</article>' +
         '<article class="stat-card">' +
           '<span class="stat-card__label">Surplus</span>' +
@@ -51,36 +67,59 @@
         '</article>' +
       '</div>' +
 
-      '<div class="card opname-draft-card"><div class="card__head"><div><h3>Perintah SO Aktif di AppSheet</h3><p>Perintah DRAFT menunggu tim lapangan mengisi hasil hitung fisik.</p></div><span class="pill" id="opname-draft-count">0 perintah</span></div>' +
-        '<div class="table-wrap"><table class="data-table"><thead><tr><th>ID SO</th><th>Tanggal</th><th>Kode SKU</th><th>Nama Barang</th><th class="num">Stok Sistem</th><th>Status</th></tr></thead><tbody id="opname-draft-body">' + ui.tableLoadingRow(6, 3) + '</tbody></table></div></div>' +
-
       '<div class="card">' +
         '<div class="card__head">' +
           '<div>' +
-            '<h3>Antrean Persetujuan</h3>' +
-            '<p>Keputusan hanya dapat dilakukan oleh Supervisor.</p>' +
+            '<h3>Daftar Perintah SO</h3>' +
+            '<p>Dikelompokkan per sesi/tanggal. Klik baris untuk membuka seluruh item dan menyetujui hasil hitung.</p>' +
           '</div>' +
-          '<span class="pill" id="opname-count">0 sesi</span>' +
-        '</div>' +
-        '<div class="toolbar">' +
-          ui.searchField('opname-search', 'Cari ID SO, SKU…') +
-          '<select id="opname-filter" class="select select--sm" aria-label="Filter jenis selisih">' +
-            '<option value="">Semua selisih</option>' +
-            '<option value="surplus">Surplus (+)</option>' +
-            '<option value="minus">Minus (−)</option>' +
-            '<option value="zero">Cocok (0)</option>' +
-          '</select>' +
-          '<span class="toolbar__spacer"></span>' +
-          '<span class="toolbar__note">Sumber: <code>Stock_Opname</code></span>' +
+          '<div class="opname-progress">' +
+            '<span class="pill pill--muted" id="opname-session-count">0 sesi</span>' +
+            '<span class="pill" id="opname-progress-label">0 / 0 dihitung</span>' +
+          '</div>' +
         '</div>' +
         '<div class="table-wrap">' +
-          '<table class="data-table" id="opname-table">' +
+          '<table class="data-table" id="opname-session-table">' +
             '<thead><tr>' +
-              '<th>ID SO</th><th>Tanggal SO</th><th>Kode SKU</th><th>Nama Barang</th>' +
-              '<th class="num">Stok Sistem</th><th class="num">Stok Fisik</th><th class="num">Selisih</th>' +
-              '<th>Status</th><th class="actions-cell">Keputusan</th>' +
+              '<th>Tanggal Perintah SO</th>' +
+              '<th class="num">Total Item</th>' +
+              '<th>Progres Hitung</th>' +
+              '<th>Status</th>' +
+              '<th class="actions-cell">Aksi</th>' +
             '</tr></thead>' +
-            '<tbody id="opname-body">' + ui.tableLoadingRow(COLSPAN, 4) + '</tbody>' +
+            '<tbody id="opname-session-body">' + ui.tableLoadingRow(SESSION_COLSPAN, 4) + '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="card opname-detail-card" id="opname-detail-card" hidden>' +
+        '<div class="card__head">' +
+          '<div>' +
+            '<h3 id="opname-detail-title">Detail Perintah SO</h3>' +
+            '<p id="opname-detail-subtitle">Pilih perintah SO pada daftar di atas.</p>' +
+          '</div>' +
+          '<div class="opname-progress">' +
+            '<span class="pill" id="opname-detail-progress">0 / 0 dihitung</span>' +
+            '<button type="button" class="btn btn--ghost btn--sm" data-action="close-detail">Tutup</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="toolbar">' +
+          '<select id="opname-item-filter" class="select select--sm" aria-label="Filter status item">' +
+            '<option value="">Semua</option>' +
+            '<option value="DRAFT">Belum Dihitung (DRAFT)</option>' +
+            '<option value="PENDING_APPROVAL">Sudah Dihitung (PENDING_APPROVAL)</option>' +
+          '</select>' +
+          '<span class="toolbar__spacer"></span>' +
+          '<span class="pill pill--muted" id="opname-item-count">0 item</span>' +
+        '</div>' +
+        '<div class="table-wrap">' +
+          '<table class="data-table" id="opname-item-table">' +
+            '<thead><tr>' +
+              '<th>ID SO</th><th>Kode SKU</th><th>Nama Barang</th>' +
+              '<th class="num">Stok Sistem</th><th class="num">Stok Fisik</th><th class="num">Selisih</th>' +
+              '<th>PIC</th><th>Status</th><th class="actions-cell">Keputusan</th>' +
+            '</tr></thead>' +
+            '<tbody id="opname-item-body">' + ui.tableLoadingRow(ITEM_COLSPAN, 4) + '</tbody>' +
           '</table>' +
         '</div>' +
       '</div>';
@@ -94,6 +133,67 @@
         '<p>Approval &amp; adjustment Stock Opname hanya dapat dijalankan oleh pengguna dengan role <strong>SUPERVISOR</strong>. Hubungi supervisor gudang untuk meninjau selisih hitung fisik.</p>' +
         '<button type="button" class="btn btn--primary" data-goto="inbound">Kembali ke Inbound</button>' +
       '</div>';
+  }
+
+  /**
+   * Kunci sesi: tanggal ISO (yyyy-MM-dd) bila tersedia agar item dengan jam
+   * berbeda tetap bergabung pada sesi yang sama.
+   */
+  function sessionKey(item) {
+    var raw = String(item && item.Tanggal_SO != null ? item.Tanggal_SO : '').trim();
+    if (!raw) return 'TANPA TANGGAL';
+
+    var iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    return iso ? iso[1] : raw;
+  }
+
+  function isPending(item) {
+    return String(item && item.Status_SO != null ? item.Status_SO : '').toUpperCase() === 'PENDING_APPROVAL';
+  }
+
+  function buildSessions() {
+    var map = {};
+    var order = [];
+
+    state.active.forEach(function (item) {
+      var key = sessionKey(item);
+
+      if (!map[key]) {
+        map[key] = { key: key, tanggalSo: key, items: [] };
+        order.push(key);
+      }
+
+      map[key].items.push(item);
+    });
+
+    state.sessions = order.map(function (key) {
+      var session = map[key];
+      var items = session.items.slice().sort(function (a, b) {
+        return String(a.ID_SO || '').localeCompare(String(b.ID_SO || ''));
+      });
+      var total = items.length;
+      var counted = items.filter(isPending).length;
+
+      return {
+        key: key,
+        tanggalSo: session.tanggalSo,
+        items: items,
+        total: total,
+        counted: counted,
+        remaining: total - counted,
+        percent: total ? Math.round((counted / total) * 100) : 0
+      };
+    }).sort(function (a, b) {
+      return String(b.tanggalSo || '').localeCompare(String(a.tanggalSo || ''));
+    });
+  }
+
+  function findSession(key) {
+    if (!key) return null;
+
+    return state.sessions.find(function (session) {
+      return session.key === key;
+    }) || null;
   }
 
   function setStats() {
@@ -122,6 +222,32 @@
     });
   }
 
+  function resolveProgress(data) {
+    if (data && data.progress && typeof data.progress === 'object') {
+      return data.progress;
+    }
+
+    var counted = state.items.length;
+    var total = state.active.length || (counted + state.drafts.length);
+
+    return {
+      total: total,
+      counted: counted,
+      remaining: Math.max(0, total - counted),
+      percent: total ? Math.round((counted / total) * 100) : 0
+    };
+  }
+
+  function setProgress(progress) {
+    if (!panel) return;
+
+    var total = Number(progress && progress.total) || 0;
+    var counted = Number(progress && progress.counted) || 0;
+    var label = panel.querySelector('#opname-progress-label');
+
+    if (label) label.textContent = counted + ' / ' + total + ' dihitung';
+  }
+
   function diffClass(diff) {
     if (diff > 0) return 'num--pos';
     if (diff < 0) return 'num--neg';
@@ -134,93 +260,205 @@
     return '0';
   }
 
-  function renderRows() {
-    var tbody = panel && panel.querySelector('#opname-body');
+  function sessionStatusBadge(session) {
+    if (!session.counted) {
+      return '<span class="badge badge--neutral"><span class="badge__dot"></span>Belum Dihitung</span>';
+    }
+
+    if (session.counted < session.total) {
+      return '<span class="badge badge--warning"><span class="badge__dot"></span>Sebagian Dihitung</span>';
+    }
+
+    return '<span class="badge badge--warning"><span class="badge__dot"></span>Siap Approval</span>';
+  }
+
+  function renderSessions() {
+    var tbody = panel && panel.querySelector('#opname-session-body');
     if (!tbody) return;
 
-    if (!state.items.length) {
-      tbody.innerHTML = ui.tableEmptyRow(COLSPAN, 'Tidak ada SO menunggu approval', 'Sesi opname baru akan tampil setelah tim lapangan menyelesaikan hitung fisik di AppSheet.');
-      if (filterCtl) filterCtl.apply();
+    var count = panel.querySelector('#opname-session-count');
+    if (count) count.textContent = state.sessions.length + ' sesi';
+
+    if (!state.sessions.length) {
+      tbody.innerHTML = ui.tableEmptyRow(
+        SESSION_COLSPAN,
+        'Belum ada perintah SO',
+        'Terbitkan perintah baru atau jalankan Sync SO AppSheet untuk menarik hasil hitung tim lapangan.'
+      );
       return;
     }
 
-    var sorted = state.items.slice().sort(function (a, b) {
-      return String(b.Tanggal_SO || '').localeCompare(String(a.Tanggal_SO || ''));
-    });
+    tbody.innerHTML = state.sessions.map(function (session) {
+      var active = session.key === state.selectedSession;
 
-    tbody.innerHTML = sorted.map(function (item) {
-      var diff = ui.num(item.Selisih);
-      var kind = diff > 0 ? 'surplus' : (diff < 0 ? 'minus' : 'zero');
-      var search = [item.ID_SO, item.Kode_SKU, item.Status_SO].join(' ').toLowerCase();
-
-      return '<tr data-row data-selisih="' + kind + '" data-search="' + ui.esc(search) + '">' +
-        '<td>' + ui.esc(item.ID_SO || '—') + '</td>' +
-        '<td class="nowrap muted">' + ui.esc(ui.formatDateTime(item.Tanggal_SO)) + '</td>' +
-        '<td>' + ui.esc(item.Kode_SKU || '—') + '</td>' +
-        '<td>' + ui.esc(ui.skuLabel(item.Kode_SKU) || '—') + '</td>' +
-        '<td class="num">' + ui.formatQty(item.Stok_Sistem) + '</td>' +
-        '<td class="num">' + ui.formatQty(item.Stok_Fisik) + '</td>' +
-        '<td class="num ' + diffClass(diff) + '"><strong>' + diffLabel(diff) + '</strong></td>' +
-        '<td>' + ui.badge(item.Status_SO || 'PENDING_APPROVAL') + '</td>' +
+      return '<tr class="opname-session-row' + (active ? ' is-active' : '') + '" data-session="' + ui.esc(session.key) + '" tabindex="0" role="button" aria-label="Buka daftar item ' + ui.esc(ui.formatDate(session.tanggalSo)) + '">' +
+        '<td><strong>' + ui.esc(ui.formatDate(session.tanggalSo)) + '</strong></td>' +
+        '<td class="num">' + ui.formatNumber(session.total) + ' item</td>' +
+        '<td>' +
+          '<div class="opname-session-progress">' +
+            '<span class="opname-session-progress__bar"><span style="width:' + session.percent + '%"></span></span>' +
+            '<span class="muted">' + session.counted + ' / ' + session.total + ' dihitung</span>' +
+          '</div>' +
+        '</td>' +
+        '<td>' + sessionStatusBadge(session) + '</td>' +
         '<td class="actions-cell">' +
           '<div class="btn-row" style="justify-content:flex-end">' +
-            '<button type="button" class="btn btn--primary btn--sm" data-approve="' + ui.esc(item.ID_SO) + '">Approve</button>' +
-            '<button type="button" class="btn btn--danger-ghost btn--sm" data-reject="' + ui.esc(item.ID_SO) + '">Reject</button>' +
+            '<button type="button" class="btn btn--ghost btn--sm" data-open-session="' + ui.esc(session.key) + '">Buka Daftar Item</button>' +
           '</div>' +
         '</td>' +
       '</tr>';
-    }).join('') +
-      '<tr class="table-state" data-empty-row hidden><td colspan="' + (COLSPAN + 1) + '">' +
-        ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter selisih.') +
-      '</td></tr>';
-
-    if (filterCtl) filterCtl.apply();
+    }).join('');
   }
 
-  function renderDraftRows() {
-    var body = panel && panel.querySelector('#opname-draft-body');
-    if (!body) return;
-    var count = panel.querySelector('#opname-draft-count');
-    if (count) count.textContent = state.drafts.length + ' perintah';
-    if (!state.drafts.length) {
-      body.innerHTML = ui.tableEmptyRow(6, 'Tidak ada perintah DRAFT', 'Perintah baru akan muncul di sini setelah dibuat.');
+  function renderDetail() {
+    var card = panel && panel.querySelector('#opname-detail-card');
+    if (!card) return;
+
+    var session = findSession(state.selectedSession);
+
+    if (!session) {
+      card.hidden = true;
       return;
     }
-    body.innerHTML = state.drafts.slice().sort(function(a,b){return String(b.Tanggal_SO||'').localeCompare(String(a.Tanggal_SO||''));}).map(function(item){
-      return '<tr><td>'+ui.esc(item.ID_SO||'—')+'</td><td class="nowrap muted">'+ui.esc(ui.formatDateTime(item.Tanggal_SO))+'</td><td>'+ui.esc(item.Kode_SKU||'—')+'</td><td>'+ui.esc(ui.skuLabel(item.Kode_SKU)||'—')+'</td><td class="num">'+ui.formatQty(item.Stok_Sistem)+'</td><td>'+ui.badge('DRAFT')+'</td></tr>';
+
+    card.hidden = false;
+
+    var title = panel.querySelector('#opname-detail-title');
+    if (title) title.textContent = 'Perintah SO ' + ui.formatDate(session.tanggalSo);
+
+    var subtitle = panel.querySelector('#opname-detail-subtitle');
+    if (subtitle) {
+      subtitle.textContent = session.total + ' item · ' + session.remaining + ' belum dihitung · ' + session.counted + ' siap approval';
+    }
+
+    var progress = panel.querySelector('#opname-detail-progress');
+    if (progress) progress.textContent = session.counted + ' / ' + session.total + ' dihitung';
+
+    var items = session.items.filter(function (item) {
+      if (!state.itemFilter) return true;
+      return String(item.Status_SO || '').toUpperCase() === state.itemFilter;
+    });
+
+    var count = panel.querySelector('#opname-item-count');
+    if (count) count.textContent = items.length + ' item';
+
+    var tbody = panel.querySelector('#opname-item-body');
+    if (!tbody) return;
+
+    if (!items.length) {
+      tbody.innerHTML = ui.tableEmptyRow(
+        ITEM_COLSPAN,
+        'Tidak ada item pada filter ini',
+        'Ubah filter status untuk melihat item lainnya pada sesi ini.'
+      );
+      return;
+    }
+
+    tbody.innerHTML = items.map(function (item) {
+      var pending = isPending(item);
+      var diff = ui.num(item.Selisih);
+      var idSo = ui.esc(item.ID_SO || '—');
+
+      return '<tr data-row>' +
+        '<td>' + idSo + '</td>' +
+        '<td>' + ui.esc(item.Kode_SKU || '—') + '</td>' +
+        '<td>' + ui.esc(ui.skuLabel(item.Kode_SKU) || '—') + '</td>' +
+        '<td class="num">' + ui.formatQty(item.Stok_Sistem) + '</td>' +
+        '<td class="num">' + (pending ? ui.formatQty(item.Stok_Fisik) : '—') + '</td>' +
+        '<td class="num ' + diffClass(diff) + '"><strong>' + (pending ? diffLabel(diff) : '—') + '</strong></td>' +
+        '<td>' + ui.esc(item.Approved_By || '—') + '</td>' +
+        '<td>' + ui.badge(item.Status_SO || 'DRAFT') + '</td>' +
+        '<td class="actions-cell">' +
+          (pending
+            ? '<div class="btn-row" style="justify-content:flex-end">' +
+                '<button type="button" class="btn btn--primary btn--sm" data-approve="' + idSo + '">Approve</button>' +
+                '<button type="button" class="btn btn--danger-ghost btn--sm" data-reject="' + idSo + '">Reject</button>' +
+              '</div>'
+            : '<span class="muted">Menunggu hitung</span>') +
+        '</td>' +
+      '</tr>';
     }).join('');
   }
 
   function renderError(error) {
-    var tbody = panel && panel.querySelector('#opname-body');
-    if (!tbody) return;
-    tbody.innerHTML = ui.tableErrorRow(COLSPAN, error && error.message);
-    ui.bindRetry(tbody, function () { load({ silent: false }); });
+    var tbody = panel && panel.querySelector('#opname-session-body');
+    if (tbody) {
+      tbody.innerHTML = ui.tableErrorRow(SESSION_COLSPAN, error && error.message);
+      ui.bindRetry(tbody, function () { load({ silent: false }); });
+    }
+
+    var card = panel && panel.querySelector('#opname-detail-card');
+    if (card) card.hidden = true;
   }
 
   async function load(options) {
     if (state.locked) return;
     var opts = options || {};
-    var tbody = panel && panel.querySelector('#opname-body');
+    var tbody = panel && panel.querySelector('#opname-session-body');
 
-    if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(COLSPAN, 4);
+    if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(SESSION_COLSPAN, 4);
 
     try {
       var data = await WMS.api.request('OPNAME_PENDING');
       state.items = data && Array.isArray(data.items) ? data.items : [];
       state.drafts = data && Array.isArray(data.draftItems) ? data.draftItems : [];
+      state.active = data && Array.isArray(data.activeItems)
+        ? data.activeItems
+        : state.drafts.concat(state.items);
       state.loaded = true;
+      state.progress = resolveProgress(data);
+      buildSessions();
+
+      if (state.selectedSession && !findSession(state.selectedSession)) {
+        state.selectedSession = null;
+      }
+
       setStats();
-      renderRows();
-      renderDraftRows();
+      setProgress(state.progress);
+      renderSessions();
+      renderDetail();
     } catch (error) {
       if (WMS.api.isAuthError(error)) return;
       if (opts.silent && state.loaded) {
-        ui.toast((error && error.message) || 'Gagal memuat antrean opname.', 'danger');
+        ui.toast((error && error.message) || 'Gagal memuat daftar opname.', 'danger');
         return;
       }
       renderError(error);
     }
+  }
+
+  /**
+   * Menarik hasil scan AppSheet (PENDING_APPROVAL) dan menyatukannya ke
+   * perintah SO DRAFT aktif dengan Kode_SKU yang sama.
+   *
+   * @param {{silent?: boolean}} [options] Opsi toast.
+   * @return {Promise<Object>} Ringkasan hasil sinkronisasi backend.
+   */
+  async function syncAppSheet(options) {
+    var opts = options || {};
+    var result = await WMS.api.request('SYNC_SO_APPSHEET');
+
+    if (!opts.silent) {
+      var synced = Number(result && result.syncedCount);
+      if (!isFinite(synced)) synced = Number(result && result.mergedCount) || 0;
+
+      var deleted = Number(result && result.deletedCount) || 0;
+      var withoutDraft = result && Array.isArray(result.pendingWithoutDraft) ? result.pendingWithoutDraft.length : 0;
+      var message;
+
+      if (synced > 0) {
+        message = synced + ' item SO berhasil disinkronkan ke perintah aktif' +
+          (deleted > 0 ? ' dan ' + deleted + ' baris duplikat AppSheet dihapus' : '') + '.';
+      } else if (withoutDraft > 0) {
+        message = withoutDraft + ' hasil hitung AppSheet menunggu approval tanpa perintah DRAFT pasangan.';
+      } else {
+        message = 'Tidak ada hasil hitung AppSheet baru untuk disinkronkan.';
+      }
+
+      ui.toast(message, synced > 0 ? 'success' : 'info', 'Sinkronisasi SO selesai');
+    }
+
+    return result;
   }
 
   function findItem(id) {
@@ -269,6 +507,7 @@
       '<div class="detail"><span class="detail__label">Stok Sistem</span><span class="detail__value">' + ui.formatQty(item.Stok_Sistem) + ' unit</span></div>' +
       '<div class="detail"><span class="detail__label">Stok Fisik</span><span class="detail__value">' + ui.formatQty(item.Stok_Fisik) + ' unit</span></div>' +
       '<div class="detail"><span class="detail__label">Selisih</span><span class="detail__value ' + (diff === 0 ? '' : (diff > 0 ? 'num--pos' : 'num--neg')) + '">' + diffLabel(diff) + ' unit</span></div>' +
+      '<div class="detail"><span class="detail__label">PIC</span><span class="detail__value">' + ui.esc(item.Approved_By || '—') + '</span></div>' +
       '<div class="detail"><span class="detail__label">Status</span><span class="detail__value">' + ui.badge(item.Status_SO || 'PENDING_APPROVAL') + '</span></div>' +
     '</div>';
   }
@@ -339,6 +578,33 @@
     });
   }
 
+  function openSession(key) {
+    state.selectedSession = key;
+    state.itemFilter = '';
+
+    var filter = panel && panel.querySelector('#opname-item-filter');
+    if (filter) filter.value = '';
+
+    renderSessions();
+    renderDetail();
+
+    var card = panel && panel.querySelector('#opname-detail-card');
+    if (card && !card.hidden && typeof card.scrollIntoView === 'function') {
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function closeSession() {
+    state.selectedSession = null;
+    state.itemFilter = '';
+
+    var filter = panel && panel.querySelector('#opname-item-filter');
+    if (filter) filter.value = '';
+
+    renderSessions();
+    renderDetail();
+  }
+
   function mount(root) {
     panel = root;
 
@@ -351,31 +617,83 @@
     state.locked = false;
     root.innerHTML = template();
 
-    filterCtl = ui.filterTable({
-      table: '#opname-table',
-      search: '#opname-search',
-      count: '#opname-count',
-      countLabel: 'sesi',
-      filters: [{ selector: '#opname-filter', attr: 'data-selisih' }]
+    var refreshButton = root.querySelector('[data-action="refresh"]');
+    if (refreshButton) refreshButton.addEventListener('click', async function (event) {
+      var button = event.currentTarget;
+      if (button.disabled) return;
+      ui.setBusy(button, true, 'Menyinkronkan…');
+      try {
+        await syncAppSheet({ silent: true });
+      } catch (error) {
+        if (WMS.api.isAuthError(error)) {
+          ui.setBusy(button, false);
+          return;
+        }
+        ui.toast((error && error.message) || 'Gagal menyinkronkan SO AppSheet.', 'warning', 'Sinkronisasi dilewati');
+      } finally {
+        ui.setBusy(button, false);
+      }
+      await load({ silent: false });
     });
 
-    var refreshButton = root.querySelector('[data-action="refresh"]');
-    if (refreshButton) refreshButton.addEventListener('click', function () {
-      load({ silent: false });
+    var syncButton = root.querySelector('[data-action="sync-so"]');
+    if (syncButton) syncButton.addEventListener('click', async function (event) {
+      var button = event.currentTarget;
+      if (button.disabled) return;
+      ui.setBusy(button, true, 'Menyinkronkan…');
+      try {
+        await syncAppSheet({ silent: false });
+        await load({ silent: false });
+      } catch (error) {
+        if (!WMS.api.isAuthError(error)) {
+          ui.toast((error && error.message) || 'Gagal menyinkronkan SO AppSheet.', 'danger');
+        }
+      } finally {
+        ui.setBusy(button, false);
+      }
     });
+
     var createButton = root.querySelector('[data-action="create"]');
     if (createButton) createButton.addEventListener('click', openCreateOrder);
 
-    var tbody = root.querySelector('#opname-body');
-    if (tbody) tbody.addEventListener('click', function (event) {
+    var sessionBody = root.querySelector('#opname-session-body');
+    if (sessionBody) {
+      sessionBody.addEventListener('click', function (event) {
+        var row = event.target.closest ? event.target.closest('[data-session]') : null;
+        if (row) openSession(row.getAttribute('data-session'));
+      });
+
+      sessionBody.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+        var row = event.target.closest ? event.target.closest('[data-session]') : null;
+        if (!row) return;
+        event.preventDefault();
+        openSession(row.getAttribute('data-session'));
+      });
+    }
+
+    var closeButton = root.querySelector('[data-action="close-detail"]');
+    if (closeButton) closeButton.addEventListener('click', closeSession);
+
+    var itemFilter = root.querySelector('#opname-item-filter');
+    if (itemFilter) itemFilter.addEventListener('change', function () {
+      state.itemFilter = itemFilter.value || '';
+      renderDetail();
+    });
+
+    var itemBody = root.querySelector('#opname-item-body');
+    if (itemBody) itemBody.addEventListener('click', function (event) {
       var approveBtn = event.target.closest ? event.target.closest('[data-approve]') : null;
       if (approveBtn) {
-        approve(findItem(approveBtn.getAttribute('data-approve')));
+        var approved = findItem(approveBtn.getAttribute('data-approve'));
+        if (approved) approve(approved);
         return;
       }
+
       var rejectBtn = event.target.closest ? event.target.closest('[data-reject]') : null;
       if (rejectBtn) {
-        reject(findItem(rejectBtn.getAttribute('data-reject')));
+        var rejected = findItem(rejectBtn.getAttribute('data-reject'));
+        if (rejected) reject(rejected);
       }
     });
 
