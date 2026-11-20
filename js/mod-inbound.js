@@ -10,7 +10,7 @@
   if (!WMS || !WMS.registerModule) return;
 
   var ui = WMS.ui;
-  var COLSPAN = 8;
+  var COLSPAN = 9;
   var state = { items: [], loaded: false };
   var panel = null;
   var activeStatusTab = 'PENDING_PUTAWAY';
@@ -26,7 +26,6 @@
           '<p class="module-head__desc">Finalisasi penerimaan hasil RCV &amp; QC AppSheet. Posting <code>Qty_QC_Pass</code> ke stok aktif dan catat sisa reject ke stok karantina.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
-          '<button type="button" class="btn btn--secondary btn--sm" data-action="sync-putaway">' + ui.ICONS.refresh + ' Sync Putaway AppSheet</button>' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
         '</div>' +
       '</div>' +
@@ -60,7 +59,10 @@
             '<h3>Antrean Penerimaan</h3>' +
             '<p>Pilih transaksi lalu tentukan lokasi rak tujuan.</p>' +
           '</div>' +
-          '<span class="pill" id="inbound-count">0 transaksi</span>' +
+          '<div class="btn-row">' +
+            '<span class="pill" id="inbound-count">0 transaksi</span>' +
+            '<button type="button" class="btn btn--secondary btn--sm" data-action="sync-putaway">' + ui.ICONS.refresh + ' Sync Putaway AppSheet</button>' +
+          '</div>' +
         '</div>' +
         '<div class="toolbar">' +
           ui.searchField('inbound-search', 'Cari ID, PO, supplier, SKU…') +
@@ -86,6 +88,7 @@
               '<th class="num">Qty RCV</th>' +
               '<th class="num">QC Pass</th>' +
               '<th class="num">Karantina</th>' +
+              '<th>Lokasi Rak</th>' +
               '<th>Status</th>' +
               '<th class="actions-cell">Aksi</th>' +
             '</tr></thead>' +
@@ -146,7 +149,7 @@
     return state.items.filter(function (item) {
       var itemStatus = String(item.Status_Inbound || '').trim().toUpperCase();
       var itemQc = ui.num(item.Qty_Karantina) > 0 ? 'karantina' : 'lolos';
-      var text = [item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, itemStatus].join(' ').toLowerCase();
+      var text = [item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, item.Lokasi_Rak, itemStatus].join(' ').toLowerCase();
       return (!status || itemStatus === status) && (!qc || itemQc === qc) && (!query || text.indexOf(query) !== -1);
     });
   }
@@ -172,7 +175,7 @@
       var isPending = status === 'PENDING_PUTAWAY';
       var isCompleted = status === 'PUTAWAY_COMPLETED';
       var search = [
-        item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, status
+        item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, item.Lokasi_Rak, status
       ].join(' ').toLowerCase();
       var action = isPending
         ? '<button type="button" class="btn btn--primary btn--sm" data-putaway="' + ui.esc(item.ID_Inbound) + '">Alokasikan Rak</button>'
@@ -187,6 +190,7 @@
         '<td class="num">' + ui.formatQty(item.Qty_RCV) + '</td>' +
         '<td class="num num--pos">' + ui.formatQty(item.Qty_QC_Pass) + '</td>' +
         '<td class="num ' + (karantina > 0 ? 'num--neg' : '') + '">' + ui.formatQty(item.Qty_Karantina) + '</td>' +
+        '<td>' + ui.esc(item.Lokasi_Rak || '-') + '</td>' +
         '<td>' + ui.badge(status) + '</td>' +
         '<td class="actions-cell">' +
           '<div class="table-actions">' +
