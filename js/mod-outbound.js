@@ -1168,12 +1168,18 @@
       ui.setBusy(button, true, 'Menarik order…');
       try {
         var result = await WMS.api.request('OUTBOUND_SYNC_STAGING');
-        var count = Number(result && result.syncedCount) || 0;
+        var inserted = Number(result && result.insertedCount) || 0;
+        var updated = Number(result && result.updatedCount) || 0;
+        var deleted = Number(result && result.deletedCount) || 0;
+        var skippedShipped = Number(result && result.skippedShippedCount) || 0;
+        var skippedSource = Number(result && result.skippedCount) || 0;
+        var details = '+' + inserted + ' baru, ' + updated + ' diperbarui, ' + deleted + ' dihapus';
+        if (skippedShipped) details += ', ' + skippedShipped + ' dilewati (sudah SHIPPED)';
+        if (skippedSource) details += ', ' + skippedSource + ' baris sumber tidak valid';
         ui.toast(
-          'Berhasil menarik ' + count + ' order baru dari Staging' +
-            (result && result.skippedCount ? ' (' + result.skippedCount + ' baris dilewati).' : '.'),
-          'success',
-          'Sinkronisasi selesai'
+          (result && result.message) || ('Sync SO selesai: ' + details + '.'),
+          skippedShipped ? 'info' : 'success',
+          'Sinkronisasi Sales Order'
         );
         await load({ silent: false });
       } catch (error) {
