@@ -17,6 +17,19 @@
   var activeQcFilter = '';
   var searchQuery = '';
 
+  /**
+   * Normalisasi status Inbound_Log. "PENDING" adalah alias historis untuk
+   * PENDING_PUTAWAY (baris rencana dari approval pengajuan) sehingga tetap
+   * tampil dan bisa diproses walau status tersimpan belum dinormalisasi.
+   *
+   * @param {*} value Nilai Status_Inbound.
+   * @return {string} Status kanonik (uppercase).
+   */
+  function normalizeInboundStatus(value) {
+    var status = String(value || '').trim().toUpperCase();
+    return status === 'PENDING' ? 'PENDING_PUTAWAY' : status;
+  }
+
   function template() {
     return '' +
       '<div class="module-head">' +
@@ -103,7 +116,7 @@
   function setStats() {
     if (!panel) return;
     var pending = state.items.filter(function (item) {
-      return String(item.Status_Inbound || '').toUpperCase() === 'PENDING_PUTAWAY';
+      return normalizeInboundStatus(item.Status_Inbound) === 'PENDING_PUTAWAY';
     });
     var qc = 0;
     var karantina = 0;
@@ -132,7 +145,7 @@
     if (!panel) return;
     var counts = { pending: 0, completed: 0, all: state.items.length };
     state.items.forEach(function (item) {
-      var status = String(item.Status_Inbound || '').trim().toUpperCase();
+      var status = normalizeInboundStatus(item.Status_Inbound);
       if (status === 'PENDING_PUTAWAY') counts.pending++;
       else if (status === 'PUTAWAY_COMPLETED') counts.completed++;
     });
@@ -147,7 +160,7 @@
     var qc = String(activeQcFilter || '').trim().toLowerCase();
     var query = String(searchQuery || '').trim().toLowerCase();
     return state.items.filter(function (item) {
-      var itemStatus = String(item.Status_Inbound || '').trim().toUpperCase();
+      var itemStatus = normalizeInboundStatus(item.Status_Inbound);
       var itemQc = ui.num(item.Qty_Karantina) > 0 ? 'karantina' : 'lolos';
       var text = [item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, item.Lokasi_Rak, itemStatus].join(' ').toLowerCase();
       return (!status || itemStatus === status) && (!qc || itemQc === qc) && (!query || text.indexOf(query) !== -1);
@@ -170,7 +183,7 @@
     var visibleIds = {};
     visibleItems.forEach(function (item) { visibleIds[String(item.ID_Inbound)] = true; });
     tbody.innerHTML = state.items.map(function (item) {
-      var status = String(item.Status_Inbound || '').trim().toUpperCase();
+      var status = normalizeInboundStatus(item.Status_Inbound);
       var karantina = ui.num(item.Qty_Karantina);
       var isPending = status === 'PENDING_PUTAWAY';
       var isCompleted = status === 'PUTAWAY_COMPLETED';

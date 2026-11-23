@@ -521,6 +521,31 @@
     });
   }
 
+  /**
+   * Menyegarkan antrean Inbound agar baris rencana hasil approval pengajuan
+   * langsung tampil saat menu Inbound dibuka, tanpa reload manual.
+   *
+   * Dipanggil setelah approval sukses. Aman bila modul Inbound belum pernah
+   * dimount: load() pada Inbound menyimpan data ke state dan hanya menyentuh
+   * DOM bila panel tersedia.
+   *
+   * @return {Promise<void>}
+   */
+  async function refreshInboundData() {
+    var modules = WMS.router && WMS.router.getModules ? WMS.router.getModules() : {};
+    var inboundModule = modules && modules.inbound;
+
+    if (!inboundModule || typeof inboundModule.refresh !== 'function') return;
+
+    try {
+      await inboundModule.refresh();
+    } catch (error) {
+      // Kegagalan refresh tidak boleh membatalkan approval yang sudah tersimpan;
+      // data Inbound tetap dimuat ulang saat modul dibuka.
+      if (WMS.api && typeof WMS.api.isAuthError === 'function' && WMS.api.isAuthError(error)) return;
+    }
+  }
+
   function openDecision(doc, decision) {
     var approving = decision === 'APPROVED';
     var body = documentSummary(doc) +
@@ -544,16 +569,29 @@
       confirmClass: approving ? 'btn--primary' : 'btn--danger',
       busyLabel: 'Menyimpan keputusan…',
       onConfirm: async function () {
-        await WMS.api.request('PROCUREMENT_APPROVE', {
+        var result = await WMS.api.request('PROCUREMENT_APPROVE', {
           noSurat: doc.noSurat,
           decision: decision
         });
-        ui.toast(
-          'Pengajuan ' + doc.noSurat + ' ' + (approving ? 'disetujui dan siap dicetak.' : 'ditolak.'),
-          approving ? 'success' : 'warning',
-          'Keputusan tersimpan'
-        );
+        var inboundCreated = Math.max(0, Number(result && result.inboundCreatedCount) || 0);
+
+        if (approving && inboundCreated > 0) {
+          ui.toast(
+            'Pengajuan ' + doc.noSurat + ' disetujui. ' + inboundCreated +
+              ' item otomatis masuk antrean Inbound (PENDING_PUTAWAY).',
+            'success',
+            'Keputusan tersimpan'
+          );
+        } else {
+          ui.toast(
+            'Pengajuan ' + doc.noSurat + ' ' + (approving ? 'disetujui dan siap dicetak.' : 'ditolak.'),
+            approving ? 'success' : 'warning',
+            'Keputusan tersimpan'
+          );
+        }
+
         await load({ silent: true });
+        if (approving) await refreshInboundData();
         return true;
       }
     });
