@@ -30,6 +30,17 @@
     return status === 'PENDING' ? 'PENDING_PUTAWAY' : status;
   }
 
+  /**
+   * True bila status Putaway Completed — spesifikasi kontrak:
+   * String(item.Status_Inbound || '').trim().toUpperCase() === 'PUTAWAY_COMPLETED'.
+   *
+   * @param {*} item Item Inbound_Log.
+   * @return {boolean} True bila status Putaway Completed.
+   */
+  function isCompletedInbound(item) {
+    return String((item && item.Status_Inbound) || '').trim().toUpperCase() === 'PUTAWAY_COMPLETED';
+  }
+
   function template() {
     return '' +
       '<div class="module-head">' +
@@ -147,7 +158,7 @@
     state.items.forEach(function (item) {
       var status = normalizeInboundStatus(item.Status_Inbound);
       if (status === 'PENDING_PUTAWAY') counts.pending++;
-      else if (status === 'PUTAWAY_COMPLETED') counts.completed++;
+      else if (isCompletedInbound(item)) counts.completed++;
     });
     Object.keys(counts).forEach(function (key) {
       var badge = panel.querySelector('[data-tab-count="' + key + '"]');
@@ -163,8 +174,93 @@
       var itemStatus = normalizeInboundStatus(item.Status_Inbound);
       var itemQc = ui.num(item.Qty_Karantina) > 0 ? 'karantina' : 'lolos';
       var text = [item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, item.Lokasi_Rak, itemStatus].join(' ').toLowerCase();
-      return (!status || itemStatus === status) && (!qc || itemQc === qc) && (!query || text.indexOf(query) !== -1);
+      // Filter tab "Putaway Completed" memakai spesifikasi kontrak langsung
+      // dari Status_Inbound, bukan via normalizeInboundStatus.
+      var statusMatch = status === 'PUTAWAY_COMPLETED'
+        ? isCompletedInbound(item)
+        : (!status || itemStatus === status);
+      return statusMatch && (!qc || itemQc === qc) && (!query || text.indexOf(query) !== -1);
     });
+  }
+
+  /**
+   * Bentuk satu baris <tr> Inbound_Log. Field kosong/null tidak boleh
+   * merusak baris lain: setiap sel pakai fallback default, dan satu baris
+   * yang gagal dibangun menjadi baris ganti dengan 9 sel kosong (aligned
+   * dengan 9 header).
+   *
+   * @param {*} item Item Inbound_Log.
+   * @return {string} HTML satu baris <tr>.
+   */
+  function buildInboundRow(item) {
+    try {
+      var data = item || {};
+      var safeString = function (value) {
+        try { return value == null ? '' : String(value); } catch (ignore) { return ''; }
+      };
+      var safeNum = function (value) {
+        try { return ui.num(value); } catch (ignore) { return 0; }
+      };
+      var safeEsc = function (value) {
+        try { return ui.esc(value == null ? '' : value); } catch (ignore) { return ''; }
+      };
+      var idText = safeString(data.ID_Inbound);
+      var status = '';
+      try { status = normalizeInboundStatus(data.Status_Inbound); } catch (ignore) { status = ''; }
+      var karantina = safeNum(data.Qty_Karantina);
+      var isPending = status === 'PENDING_PUTAWAY';
+      var isCompleted = false;
+      try { isCompleted = isCompletedInbound(data); } catch (ignore) { isCompleted = false; }
+      var tanggalText = '';
+      try { tanggalText = ui.formatDate(data.Tanggal) || ''; } catch (ignore) { tanggalText = ''; }
+      var poText = safeString(data.No_PO_SJ);
+      var supplierText = safeString(data.Supplier);
+      var skuText = safeString(data.Kode_SKU);
+      var nameText = safeString(data.Nama_Barang);
+      var rakText = safeString(data.Lokasi_Rak);
+      var qtyRcv = safeNum(data.Qty_RCV);
+      var qtyQcPass = safeNum(data.Qty_QC_Pass);
+      var search = [idText, poText, supplierText, skuText, nameText, rakText, status].join(' ').toLowerCase();
+      var action = isPending
+        ? '<button type="button" class="btn btn--primary btn--sm" data-putaway="' + safeEsc(idText) + '">Alokasikan Rak</button>'
+        : (isCompleted ? '<span class="muted" style="font-size:11.5px">Selesai</span>'
+          : '<span class="muted">—</span>');
+
+      var cellStack = function (primary, secondary) {
+        try { return ui.cellStack(primary == null ? '' : primary, secondary == null ? '' : secondary); }
+        catch (ignore) { return safeEsc(primary) + (secondary ? '<br><small>' + safeEsc(secondary) + '</small>' : ''); }
+      };
+      var formatQty = function (value) {
+        try { return ui.formatQty(value); } catch (ignore) { return String(safeNum(value)); }
+      };
+      var badge = '';
+      try { badge = ui.badge(status); } catch (ignore) { badge = safeEsc(status || '—'); }
+      var pdf = '';
+      try { pdf = ui.pdfLink(data.Link_PDF); } catch (ignore) { pdf = ''; }
+
+      return '<tr data-row data-inbound-id="' + safeEsc(idText) + '" data-status="' + safeEsc(status) + '" data-qc="' +
+        (karantina > 0 ? 'karantina' : 'lolos') + '" data-search="' + safeEsc(search) + '">' +
+        '<td>' + cellStack(idText || '—', tanggalText) + '</td>' +
+        '<td>' + cellStack(poText || '—', supplierText) + '</td>' +
+        '<td>' + cellStack(skuText, nameText) + '</td>' +
+        '<td class="num">' + formatQty(qtyRcv) + '</td>' +
+        '<td class="num num--pos">' + formatQty(qtyQcPass) + '</td>' +
+        '<td class="num ' + (karantina > 0 ? 'num--neg' : '') + '">' + formatQty(karantina) + '</td>' +
+        '<td><span class="badge badge--muted">' + safeEsc(rakText || '-') + '</span></td>' +
+        '<td>' + badge + '</td>' +
+        '<td class="actions-cell">' +
+          '<div class="table-actions">' +
+            pdf +
+            action +
+          '</div>' +
+        '</td>' +
+      '</tr>';
+    } catch (error) {
+      return '<tr data-row data-inbound-id="" data-status="OTHER" data-qc="lolos" data-search="">' +
+        '<td></td><td></td><td></td><td class="num"></td><td class="num num--pos"></td><td class="num"></td>' +
+        '<td></td><td></td><td class="actions-cell"><div class="table-actions"><span class="muted">—</span></div></td>' +
+      '</tr>';
+    }
   }
 
   function renderRows() {
@@ -179,53 +275,15 @@
       return;
     }
 
-    var visibleItems = getFilteredData();
-    var visibleIds = {};
-    visibleItems.forEach(function (item) { visibleIds[String(item.ID_Inbound)] = true; });
-    tbody.innerHTML = state.items.map(function (item) {
-      var status = normalizeInboundStatus(item.Status_Inbound);
-      var karantina = ui.num(item.Qty_Karantina);
-      var isPending = status === 'PENDING_PUTAWAY';
-      var isCompleted = status === 'PUTAWAY_COMPLETED';
-      var search = [
-        item.ID_Inbound, item.No_PO_SJ, item.Supplier, item.Kode_SKU, item.Nama_Barang, item.Lokasi_Rak, status
-      ].join(' ').toLowerCase();
-      var action = isPending
-        ? '<button type="button" class="btn btn--primary btn--sm" data-putaway="' + ui.esc(item.ID_Inbound) + '">Alokasikan Rak</button>'
-        : (isCompleted
-          ? '<span class="muted" style="font-size:11.5px">Selesai</span>'
-          : '<span class="muted">—</span>');
-
-      return '<tr data-row data-status="' + ui.esc(status) + '" data-qc="' + (karantina > 0 ? 'karantina' : 'lolos') + '" data-search="' + ui.esc(search) + '">' +
-        '<td>' + ui.cellStack(item.ID_Inbound || '—', ui.formatDate(item.Tanggal)) + '</td>' +
-        '<td>' + ui.cellStack(item.No_PO_SJ || '—', item.Supplier || '') + '</td>' +
-        '<td>' + ui.cellStack(item.Kode_SKU, item.Nama_Barang) + '</td>' +
-        '<td class="num">' + ui.formatQty(item.Qty_RCV) + '</td>' +
-        '<td class="num num--pos">' + ui.formatQty(item.Qty_QC_Pass) + '</td>' +
-        '<td class="num ' + (karantina > 0 ? 'num--neg' : '') + '">' + ui.formatQty(item.Qty_Karantina) + '</td>' +
-        '<td>' + ui.esc(item.Lokasi_Rak || '-') + '</td>' +
-        '<td>' + ui.badge(status) + '</td>' +
-        '<td class="actions-cell">' +
-          '<div class="table-actions">' +
-            ui.pdfLink(item.Link_PDF) +
-            action +
-          '</div>' +
-        '</td>' +
-      '</tr>';
-    }).join('') +
+    var filteredRows = getFilteredData();
+    tbody.innerHTML = filteredRows.map(buildInboundRow).join('') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status.') +
       '</td></tr>';
-    tbody.querySelectorAll('tr[data-row]').forEach(function (row) {
-      var button = row.querySelector('[data-putaway]');
-      var cell = row.querySelector('td');
-      var id = button ? button.getAttribute('data-putaway') : (cell ? String(cell.textContent || '').trim().split(/\s+/)[0] : '');
-      row.hidden = !visibleIds[id];
-    });
     var emptyRow = tbody.querySelector('[data-empty-row]');
-    if (emptyRow) emptyRow.hidden = visibleItems.length > 0;
+    if (emptyRow) emptyRow.hidden = filteredRows.length > 0;
     var count = panel.querySelector('#inbound-count');
-    if (count) count.textContent = visibleItems.length + ' transaksi';
+    if (count) count.textContent = filteredRows.length + ' transaksi';
   }
 
   function renderError(error) {

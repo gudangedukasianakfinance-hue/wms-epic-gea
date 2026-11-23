@@ -578,7 +578,7 @@
         if (approving && inboundCreated > 0) {
           ui.toast(
             'Pengajuan ' + doc.noSurat + ' disetujui. ' + inboundCreated +
-              ' item otomatis masuk antrean Inbound (PENDING_PUTAWAY).',
+              ' item otomatis masuk antrean Inbound (PENDING).',
             'success',
             'Keputusan tersimpan'
           );
