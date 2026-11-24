@@ -79,6 +79,30 @@
   async function request(action, params, options) {
     var opts = options || {};
     var payload = buildPayload(action, params, opts);
+    var retryCount = 0;
+    var maxRetries = 2;
+
+    function isRetryable(error) {
+      var message = String(error && error.message || '');
+      return !!(error && (Number(error.code) === 409 || Number(error.code) === 503)) ||
+        /sedang diproses|coba lagi beberapa saat/i.test(message);
+    }
+
+    async function sendWithRetry() {
+      try {
+        return await sendRequestOnce(payload, opts);
+      } catch (error) {
+        if (retryCount >= maxRetries || !isRetryable(error)) throw error;
+        retryCount++;
+        await new Promise(function (resolve) { global.setTimeout(resolve, 1500); });
+        return sendWithRetry();
+      }
+    }
+
+    return sendWithRetry();
+  }
+
+  async function sendRequestOnce(payload, opts) {
     var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var timeout = opts.timeout || CONFIG.REQUEST_TIMEOUT || 60000;
     var timer = null;
