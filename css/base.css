@@ -9,30 +9,29 @@
   --primary-color: #1e3a8a;
   --primary-hover: #1d4ed8;
   --primary-light: #eff6ff;
-  --sidebar-bg: #172554;
   --badge-accent: #dbeafe;
 
-  /* Netral & semantik */
-  --bg: #f5f7fb;
-  --surface: #ffffff;
-  --surface-muted: #f8fafc;
-  --border: #e5e7eb;
-  --border-strong: #cbd5e1;
-  --text: #111827;
-  --text-soft: #374151;
-  --text-muted: #6b7280;
-  --text-faint: #9ca3af;
-  --success: #15803d;
-  --success-bg: #dcfce7;
-  --success-border: #bbf7d0;
-  --warning: #b45309;
-  --warning-bg: #fef3c7;
-  --warning-border: #fde68a;
-  --danger: #b91c1c;
-  --danger-bg: #fee2e2;
-  --danger-border: #fecaca;
-  --info: #1d4ed8;
-  --info-bg: #dbeafe;
+  /* Netral & semantik - di-override oleh --theme-* dari styles.css */
+  --bg: var(--theme-bg);
+  --surface: var(--theme-card);
+  --surface-muted: var(--theme-surface-muted, #f8fafc);
+  --border: var(--theme-border);
+  --border-strong: var(--theme-border-strong, #cbd5e1);
+  --text: var(--theme-text);
+  --text-soft: var(--theme-text-soft);
+  --text-muted: var(--theme-text-muted);
+  --text-faint: var(--theme-text-faint, #9ca3af);
+  --success: var(--success-color, #15803d);
+  --success-bg: var(--success-bg, #dcfce7);
+  --success-border: var(--success-border, #bbf7d0);
+  --warning: var(--warning-color, #b45309);
+  --warning-bg: var(--warning-bg, #fef3c7);
+  --warning-border: var(--warning-border, #fde68a);
+  --danger: var(--danger-color, #b91c1c);
+  --danger-bg: var(--danger-bg, #fee2e2);
+  --danger-border: var(--danger-border, #fecaca);
+  --info: var(--info-color, #1d4ed8);
+  --info-bg: var(--info-bg, #dbeafe);
 
   /* Ukuran & bayangan */
   --sidebar-width: 264px;
@@ -204,8 +203,8 @@ svg {
   display: flex;
   flex-direction: column;
   padding: 20px 16px 16px;
-  color: #e2e8f0;
-  background-color: var(--sidebar-bg);
+  color: var(--theme-sidebar-text);
+  background-color: var(--theme-sidebar);
   background-image: radial-gradient(120% 55% at 0% 0%, rgba(255, 255, 255, 0.1), transparent 60%);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -304,8 +303,8 @@ svg {
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: var(--sidebar-bg);
-  background: var(--badge-accent);
+  color: var(--theme-sidebar);
+  background: var(--theme-sidebar-text);
 }
 
 .sidebar__nav {
@@ -1999,7 +1998,7 @@ body.auth-gate {
 .login-modal__accent {
   height: 6px;
   flex: none;
-  background: linear-gradient(90deg, var(--sidebar-bg), var(--primary-color) 55%, var(--primary-hover));
+  background: linear-gradient(90deg, var(--theme-sidebar), var(--primary-color) 55%, var(--primary-hover));
 }
 
 .login-modal .modal__body {
