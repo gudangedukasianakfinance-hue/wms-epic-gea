@@ -9,7 +9,7 @@
   var loadGen = 0;
 
   function template() {
-    return '<div class="module-head"><div><p class="eyebrow">Administrasi · Akses</p><h2>Manajemen Pengguna</h2><p class="module-head__desc">Kelola akun, hak gudang, status aktif, dan reset PIN.</p></div><div class="module-head__actions"><button class="btn btn--ghost btn--sm" data-action="refresh">'+ui.ICONS.refresh+' Muat Ulang</button><button class="btn btn--primary btn--sm" data-action="create">+ Tambah Pengguna</button></div></div>'+
+    return '<div class="module-head"><div><p class="eyebrow">Administrasi · Akses</p></div><div class="module-head__actions"><button class="btn btn--ghost btn--sm" data-action="refresh">'+ui.ICONS.refresh+' Muat Ulang</button><button class="btn btn--primary btn--sm" data-action="create">+ Tambah Pengguna</button></div></div>'+
       '<div class="card"><div class="card__head"><div><h3>Daftar Pengguna</h3><p>PIN tidak pernah ditampilkan dalam daftar ini.</p></div><span class="pill" id="users-count">0 pengguna</span></div><div class="toolbar">'+ui.searchField('users-search','Cari ID, username, atau nama…')+'</div><div class="table-wrap"><table class="data-table" id="users-table"><thead><tr><th>ID User</th><th>Username</th><th>Nama Lengkap</th><th>Role</th><th>Akses Gudang</th><th>Status</th><th>Last Login</th><th class="actions-cell">Aksi</th></tr></thead><tbody id="users-body">'+ui.tableLoadingRow(8,4)+'</tbody></table></div></div>';
   }
   function render() {
@@ -56,5 +56,5 @@
     }});
   }
   function mount(root){panel=root;if(!WMS.auth.isSupervisor()){root.innerHTML='<div class="locked-panel"><h3>Akses Terbatas</h3><p>Manajemen pengguna hanya tersedia untuk Supervisor.</p><button class="btn btn--primary" data-goto="inbound">Kembali ke Inbound</button></div>';return Promise.resolve();}root.innerHTML=template();var refresh=root.querySelector('[data-action="refresh"]'),create=root.querySelector('[data-action="create"]'),body=root.querySelector('#users-body');if(refresh)refresh.onclick=load;if(create)create.onclick=function(){openForm(null);};if(body)body.addEventListener('click',function(e){var b=e.target.closest('[data-edit]');if(b)openForm(state.items.find(function(u){return u.ID_User===b.getAttribute('data-edit');}));});return load();}
-  WMS.registerModule({id:'users',label:'Manajemen Pengguna',eyebrow:'Administrasi · Akses',title:'Manajemen Pengguna',description:'Kelola akun pengguna',requiresRole:'SUPERVISOR',mount:mount,refresh:load});
+  WMS.registerModule({id:'users',label:'Manajemen Pengguna',title:'Manajemen Pengguna',requiresRole:'SUPERVISOR',mount:mount,refresh:load});
 })(window);

@@ -6,7 +6,7 @@
   <meta name="description" content="WMS Terpadu Gudang CV EPIC â€” Inbound, Outbound, Inventory & Transfer, Stock Opname, Pengajuan Order.">
   <meta name="theme-color" content="#7C2D12">
   <link rel="icon" type="image/png" href="assets/img/logo-epic.png">
-  <title>Gudang CV EPIC Â· WMS Terpadu</title>
+  <title>Gudang CV EPIC · WMS Terpadu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,12 +51,6 @@
         </span>
       </div>
 
-      <div class="sidebar__warehouse">
-        <span class="sidebar__warehouse-label">Gudang Aktif</span>
-        <strong>Gudang CV EPIC</strong>
-        <span class="sidebar__warehouse-code">EPIC</span>
-      </div>
-
       <nav class="sidebar__nav" aria-label="Modul WMS">
         <span class="sidebar__section">Operasional</span>
 
@@ -64,40 +58,40 @@
           <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
           </svg>
-          <span class="nav-item__text">Inbound<small>Putaway penerimaan</small></span>
+          <span class="nav-item__text">Inbound</span>
         </button>
 
         <button type="button" class="nav-item" data-module="outbound">
           <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>
           </svg>
-          <span class="nav-item__text">Outbound<small>Picking, dispatch &amp; OTD</small></span>
+          <span class="nav-item__text">Outbound</span>
         </button>
 
         <button type="button" class="nav-item" data-module="inventory">
           <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/>
           </svg>
-          <span class="nav-item__text">Inventory &amp; Transfer<small>Stok, kartu stok &amp; mutasi</small></span>
+          <span class="nav-item__text">Inventory &amp; Transfer</span>
         </button>
 
         <button type="button" class="nav-item" data-module="procurement">
           <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/>
           </svg>
-          <span class="nav-item__text">Pengajuan Order<small>Pengajuan &amp; surat kesepakatan</small></span>
+          <span class="nav-item__text">Pengajuan Order</span>
         </button>
 
         <button type="button" class="nav-item" data-module="opname" data-requires-role="SUPERVISOR" hidden>
           <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="m9 13 2 2 4-4"/>
           </svg>
-          <span class="nav-item__text">Stock Opname<small>Approval supervisor</small></span>
+          <span class="nav-item__text">Stock Opname</span>
         </button>
 
         <button type="button" class="nav-item" data-module="users" data-tab="users" data-requires-role="SUPERVISOR" hidden>
           <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1"/><path d="M16 11a3 3 0 1 0 0-6"/><path d="M18 14a5 5 0 0 1 3 5v1"/></svg>
-          <span class="nav-item__text">Manajemen Pengguna<small>Kelola akun &amp; akses</small></span>
+          <span class="nav-item__text">Manajemen Pengguna</span>
         </button>
 
         <span class="sidebar__section">Sesi</span>
@@ -111,7 +105,7 @@
       </nav>
 
       <div class="sidebar__footer">
-        <span>WMS Terpadu Â· <strong>v1.0</strong></span>
+        <span>WMS Terpadu · <strong>v1.0</strong></span>
       </div>
     </aside>
 
@@ -126,16 +120,10 @@
         </button>
 
         <div class="topbar__context">
-          <span class="topbar__eyebrow" id="page-eyebrow">WMS Terpadu</span>
           <h1 class="topbar__title" id="page-title">Dashboard Gudang</h1>
         </div>
 
         <div class="topbar__meta">
-          <span class="warehouse-badge">
-            <span class="dot" aria-hidden="true"></span>
-            Gudang CV EPIC
-            <code>EPIC</code>
-          </span>
           <span class="api-status" id="api-status" data-api-status="idle" title="Status koneksi API">
             <span class="api-status__dot" aria-hidden="true"></span>
             <span class="api-status__label">Menunggu login</span>
@@ -152,7 +140,7 @@
 
         <div class="topbar__actions">
           <a class="btn btn--ghost btn--sm" href="dashboard-so.html" data-requires-role="SUPERVISOR" hidden>Monitoring SO</a>
-          <button type="button" class="btn btn--ghost btn--sm" data-theme-toggle aria-label="Ganti tema">ðŸŒ™</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-theme-toggle aria-label="Ganti tema">☾</button>
           <button type="button" class="btn btn--ghost btn--sm" id="switch-warehouse" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>
@@ -182,7 +170,7 @@
       </main>
 
       <footer class="app-footer">
-        <span><strong>WMS Terpadu</strong> Â· CV EPIC &amp; PT GEA Â· Single-Core Frontend</span>
+        <span><strong>WMS Terpadu</strong> · CV EPIC &amp; PT GEA · Single-Core Frontend</span>
         <span>Data stok bersumber langsung dari Google Sheets operasional.</span>
       </footer>
     </div>

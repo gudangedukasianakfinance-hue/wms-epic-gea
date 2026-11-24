@@ -1,5 +1,5 @@
 /**
- * mod-inbound.js — Modul 1 Inbound (Putaway penerimaan)
+ * mod-inbound.js — Modul 1 Inbound
  * Sumber data: seluruh Inbound_Log (PENDING_PUTAWAY & PUTAWAY_COMPLETED).
  */
 
@@ -46,9 +46,6 @@
     return '' +
       '<div class="module-head">' +
         '<div>' +
-          '<p class="eyebrow">Modul 1 · Barang Masuk</p>' +
-          '<h2>Inbound — Putaway</h2>' +
-          '<p class="module-head__desc">Finalisasi penerimaan hasil RCV &amp; QC AppSheet. Posting <code>Qty_QC_Pass</code> ke stok aktif dan catat sisa reject ke stok karantina.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
@@ -522,7 +519,6 @@
     label: 'Inbound',
     eyebrow: 'Modul 1 · Barang Masuk',
     title: 'Inbound',
-    description: 'Putaway penerimaan',
     mount: mount,
     refresh: function () { if (WMS.consumeDirty) WMS.consumeDirty('inbound'); return load({ silent: true }); }
   });

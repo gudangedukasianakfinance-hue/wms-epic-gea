@@ -215,9 +215,6 @@
     return '' +
       '<div class="module-head">' +
         '<div>' +
-          '<p class="eyebrow">Modul 5 · Procurement</p>' +
-          '<h2>Pengajuan Order</h2>' +
-          '<p class="module-head__desc">Ajukan pemesanan internal maupun kontrak vendor, setujui bersama Supervisor, lalu cetak dokumen A4 siap tanda tangan.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
@@ -1451,7 +1448,6 @@
     label: 'Pengajuan Order',
     eyebrow: 'Modul 5 · Procurement',
     title: 'Pengajuan Order',
-    description: 'Pengajuan internal & surat kesepakatan vendor',
     mount: mount,
     refresh: function () { return load({ silent: true }); }
   });

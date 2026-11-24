@@ -2,7 +2,7 @@
 <html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0B1120"><title>Monitoring Stock Opname Â· WMS</title>
+  <meta name="theme-color" content="#0B1120"><title>Monitoring Stock Opname · WMS</title>
   
   <link rel="stylesheet" href="css/base.css?v=20261125"><link rel="stylesheet" href="css/styles.css?v=20261125"><script src="js/theme.js?v=20261125"></script>
   <style>
@@ -11,7 +11,7 @@
 </head>
 <body>
   <main class="so-page">
-    <header class="so-head"><h1>Monitoring Stock Opname</h1><span id="load-state" class="muted">Memuatâ€¦</span><button class="btn btn--ghost btn--sm" data-theme-toggle>ðŸŒ™</button><button id="reload" class="btn btn--secondary btn--sm">Muat Ulang</button><a id="back" class="btn btn--primary btn--sm" href="cv-epic.html">Kembali ke Operasional</a></header>
+    <header class="so-head"><h1>Monitoring Stock Opname</h1><span id="load-state" class="muted">Memuatâ€¦</span><button class="btn btn--ghost btn--sm" data-theme-toggle aria-label="Ganti tema">☾</button><button id="reload" class="btn btn--secondary btn--sm">Muat Ulang</button><a id="back" class="btn btn--primary btn--sm" href="cv-epic.html">Kembali ke Operasional</a></header>
     <section class="so-filters"><select id="filter-entity" class="select"><option value="">Semua Entitas</option><option value="EPIC">CV EPIC</option><option value="GEA">PT GEA</option></select><select id="filter-type" class="select"><option value="">Semua Jenis SO</option><option value="MINGGUAN">SO Mingguan</option><option value="BULANAN">SO Bulanan</option></select><select id="filter-period" class="select"><option value="">Semua Periode</option></select><select id="filter-status" class="select"><option value="">Semua Status</option><option value="PENDING_APPROVAL">Pending Approval</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select></section>
     <section class="so-kpis"><article class="so-kpi"><span>Akurasi Stok (%)</span><strong id="kpi-accuracy">â€”</strong></article><article class="so-kpi"><span>Total Sesi SO</span><strong id="kpi-sessions">â€”</strong></article><article class="so-kpi"><span>Total Item Selisih</span><strong id="kpi-diff">â€”</strong></article><article class="so-kpi"><span>Menunggu Approval</span><strong id="kpi-pending">â€”</strong></article></section>
     <section class="so-compare"><article class="so-panel"><h2>CV EPIC</h2><div class="compare-item" id="compare-epic"><strong>â€”</strong></div></article><article class="so-panel"><h2>PT GEA</h2><div class="compare-item" id="compare-gea"><strong>â€”</strong></div></article></section>

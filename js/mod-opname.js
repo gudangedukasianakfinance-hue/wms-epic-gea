@@ -34,9 +34,6 @@
     return '' +
       '<div class="module-head">' +
         '<div>' +
-          '<p class="eyebrow">Modul 4 · Stock Opname</p>' +
-          '<h2>Stock Opname</h2>' +
-          '<p class="module-head__desc">Terbitkan perintah hitung untuk tim lapangan dan tinjau hasil fisik dari AppSheet.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
           '<button type="button" class="btn btn--secondary btn--sm" data-action="sync-so">' + ui.ICONS.refresh + ' Sync SO AppSheet</button>' +
@@ -719,7 +716,6 @@
     label: 'Stock Opname',
     eyebrow: 'Modul 4 · Stock Opname',
     title: 'Stock Opname',
-    description: 'Approval supervisor',
     requiresRole: 'SUPERVISOR',
     mount: mount,
     refresh: function () { return load({ silent: true }); }

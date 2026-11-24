@@ -47,9 +47,6 @@
     return '' +
       '<div class="module-head">' +
         '<div>' +
-          '<p class="eyebrow">Modul 3 · Persediaan</p>' +
-          '<h2>Inventory &amp; Transfer</h2>' +
-          '<p class="module-head__desc">Pantau stok aktif per SKU, telusuri buku besar mutasi, dan pindahkan stok antar gudang dengan bukti surat jalan PDF.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
@@ -908,7 +905,6 @@
     label: 'Inventory & Transfer',
     eyebrow: 'Modul 3 · Persediaan',
     title: 'Inventory & Transfer',
-    description: 'Stok, kartu stok & mutasi',
     mount: mount,
     refresh: function () {
       if (WMS.consumeDirty) WMS.consumeDirty('inventory');

@@ -27,9 +27,6 @@
     return '' +
       '<div class="module-head">' +
         '<div>' +
-          '<p class="eyebrow">Modul 2 · Barang Keluar</p>' +
-          '<h2>Outbound — Picking &amp; Dispatch</h2>' +
-          '<p class="module-head__desc">Buat picking order, unggah surat jalan saat dispatch, lalu konfirmasi kedatangan untuk menghitung KPI On-Time Delivery.</p>' +
         '</div>' +
         '<div class="module-head__actions">' +
           (presetHeaderActions || DEFAULT_HEADER_ACTIONS) +
@@ -1270,7 +1267,6 @@
     label: 'Outbound',
     eyebrow: 'Modul 2 · Barang Keluar',
     title: 'Outbound',
-    description: 'Picking, dispatch & OTD',
     mount: mount,
     refresh: function () { return load({ silent: true }); }
   });

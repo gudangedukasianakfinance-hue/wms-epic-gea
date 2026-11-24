@@ -70,10 +70,13 @@ html, body { background: var(--theme-bg); color: var(--theme-text); }
 [data-theme="light"] .nav-item__text,
 [data-theme="light"] .nav-item__text small,
 [data-theme="light"] .sidebar__footer strong,
+[data-theme="light"] .sidebar__footer,
 [data-theme="light"] .sidebar__footer .status-dot,
 [data-theme="light"] .sidebar__warehouse strong {
   color: var(--theme-sidebar-text) !important;
 }
+[data-theme="light"] #sidebar-user-role,
+[data-theme="light"] .sidebar__footer > span { color: #475569 !important; }
 
 /* Active nav item in light mode - soft highlight with sharp text */
 [data-theme="light"] .nav-item.is-active {
@@ -173,6 +176,10 @@ html, body { background: var(--theme-bg); color: var(--theme-text); }
 }
 /* Active page title in dark mode - bright white */
 [data-theme="dark"] .topbar__title { color: #f8fafc !important; }
+.topbar__eyebrow { display: none !important; }
+.topbar__context { display: flex; align-items: center; }
+.topbar__title { margin-top: 0; }
+.topbar__meta .warehouse-badge { display: none !important; }
 
 .topbar__meta { display: flex; align-items: center; gap: 8px; margin-left: 6px; }
 .warehouse-badge {
@@ -590,9 +597,24 @@ html, body { background: var(--theme-bg); color: var(--theme-text); }
 /* Remove white background/gradient on first KPI card in dark mode */
 [data-theme="dark"] .kpi-card:first-child {
   background: var(--theme-card);
-  border-top: 2px solid var(--theme-border);
-  border-left: 2px solid var(--theme-border);
+  border: 1px solid #334155;
 }
+
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .stat-card--accent,
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .kpi-card:first-child { background: #1E293B !important; border-color: #334155 !important; }
+[data-theme="dark"] .stat-card__value,
+[data-theme="dark"] .kpi-value,
+[data-theme="dark"] .page-title,
+[data-theme="dark"] h1,
+[data-theme="dark"] h2 { color: #F8FAFC !important; }
+[data-theme="dark"] .stat-card__label,
+[data-theme="dark"] .kpi-label { color: #94A3B8 !important; }
+[data-theme="dark"] .stat-card__meta,
+[data-theme="dark"] .kpi-sub { color: #CBD5E1 !important; }
+[data-theme="dark"] .pill,
+[data-theme="dark"] .badge--neutral { background: #263349 !important; border-color: #334155 !important; color: #F1F5F9 !important; }
 
 /* KPI value - main number */
 .kpi-value {
