@@ -348,6 +348,65 @@
     return '<tr class="table-state"><td colspan="' + Number(colspan || 1) + '"><div class="skeleton-stack">' + bars + '</div></td></tr>';
   };
 
+  /**
+   * Batas jumlah baris yang dirender per siklus. Tabel besar dirender bertahap
+   * agar browser tidak membuat ratusan/ribuan elemen <tr> sekaligus.
+   */
+  ui.TABLE_PAGE_SIZE = 100;
+
+  /**
+   * Menunda eksekusi fungsi sampai input berhenti selama `wait` milidetik.
+   *
+   * @param {Function} fn Fungsi yang dijalankan.
+   * @param {number} [wait] Jeda dalam milidetik (default 300).
+   * @return {Function} Fungsi terbungkus debounce.
+   */
+  ui.debounce = function (fn, wait) {
+    var timer = null;
+    var delay = wait === undefined ? 300 : (Number(wait) || 0);
+
+    return function () {
+      var context = this;
+      var args = arguments;
+
+      if (timer) global.clearTimeout(timer);
+
+      if (!delay) return fn.apply(context, args);
+
+      timer = global.setTimeout(function () {
+        timer = null;
+        fn.apply(context, args);
+      }, delay);
+    };
+  };
+
+  /**
+   * Baris "tampilkan lebih banyak" untuk tabel yang dirender bertahap.
+   *
+   * @param {number} colspan Jumlah kolom tabel.
+   * @param {number} shown Jumlah baris yang sudah dirender.
+   * @param {number} total Jumlah seluruh baris hasil filter.
+   * @param {string} label Label satuan (mis. "order", "transaksi").
+   * @return {string} HTML baris tabel atau string kosong bila semua sudah tampil.
+   */
+  ui.showMoreRow = function (colspan, shown, total, label) {
+    var visible = Math.max(0, Number(shown) || 0);
+    var all = Math.max(0, Number(total) || 0);
+    var remaining = all - visible;
+
+    if (remaining <= 0) return '';
+
+    var next = Math.min(ui.TABLE_PAGE_SIZE, remaining);
+    var text = next >= remaining
+      ? 'Tampilkan semua ' + remaining + ' ' + label
+      : 'Tampilkan ' + next + ' berikutnya (tersisa ' + remaining + ' ' + label + ')';
+
+    return '<tr class="table-state" data-more-row><td colspan="' + Number(colspan || 1) + '">' +
+      '<div class="btn-row" style="justify-content:center;padding:14px">' +
+        '<button type="button" class="btn btn--secondary btn--sm" data-show-more>' + esc(text) + '</button>' +
+      '</div></td></tr>';
+  };
+
   ui.tableEmptyRow = function (colspan, title, message) {
     return '<tr class="table-state" data-empty-row><td colspan="' + Number(colspan || 1) + '">' +
       ui.emptyState(title || 'Belum ada data', message || 'Data akan tampil setelah tersedia.') +
@@ -441,25 +500,57 @@
     var search = options.search ? document.querySelector(options.search) : null;
     var countEl = options.count ? document.querySelector(options.count) : null;
     var label = options.countLabel || 'baris';
+    var debounceMs = options.debounceMs === undefined ? 300 : options.debounceMs;
     var filters = (options.filters || []).map(function (filter) {
       return {
         el: document.querySelector(filter.selector),
         attr: filter.attr,
-        mode: filter.mode || 'equals'
+        mode: filter.mode || 'equals',
+        valueGetter: filter.valueGetter
       };
     }).filter(function (filter) { return !!filter.el; });
 
+    /**
+     * Mengumpulkan kata kunci dan nilai filter sekali per penerapan agar tidak
+     * membaca DOM berulang untuk setiap baris.
+     *
+     * @return {{query: string, filters: Array<Object>, values: Object}}
+     */
+    function collectCriteria() {
+      var values = {};
+
+      var list = filters.map(function (filter) {
+        var value = filter.valueGetter ? filter.valueGetter() : filter.el.value;
+        values[filter.attr] = value;
+        return { attr: filter.attr, value: value, mode: filter.mode };
+      });
+
+      return {
+        query: search ? String(search.value || '').trim().toLowerCase() : '',
+        filters: list,
+        values: values
+      };
+    }
+
     function apply() {
-      var query = search ? String(search.value || '').trim().toLowerCase() : '';
+      var criteria = collectCriteria();
+
+      // Mode data-driven: modul menyaring array penuh lalu merender sebagian
+      // baris (render cap). DOM difilter ulang oleh modul, bukan di sini.
+      if (typeof options.onFilter === 'function') {
+        options.onFilter(criteria);
+        return;
+      }
+
       var rows = table.querySelectorAll('tbody tr[data-row]');
       var visible = 0;
 
       rows.forEach(function (row) {
-        var show = !query || String(row.getAttribute('data-search') || '').indexOf(query) !== -1;
+        var show = !criteria.query || String(row.getAttribute('data-search') || '').indexOf(criteria.query) !== -1;
 
-        filters.forEach(function (filter) {
+        criteria.filters.forEach(function (filter) {
           if (!show) return;
-          var value = filter.valueGetter ? filter.valueGetter() : filter.el.value;
+          var value = filter.value;
           if (!value) return;
           var rowValue = String(row.getAttribute(filter.attr) || '');
           if (filter.mode === 'includes') {
@@ -478,12 +569,14 @@
       if (countEl) countEl.textContent = visible + ' ' + label;
     }
 
-    if (search) search.addEventListener('input', apply);
+    var applySearch = ui.debounce(apply, debounceMs);
+
+    if (search) search.addEventListener('input', applySearch);
     filters.forEach(function (filter) {
       filter.el.addEventListener('change', apply);
     });
 
-    return { apply: apply };
+    return { apply: apply, applyDebounced: applySearch };
   };
 
   /* ------------------------------------------------------------------------
@@ -823,7 +916,6 @@
   }
 
   function activate(id, options) {
-    var opts = options || {};
     var def = state.modules[id];
 
     if (!def) {
@@ -887,8 +979,10 @@
     }
 
     if (typeof def.refresh === 'function') {
+      // Modul sudah pernah dimount: jangan kosongkan tabel dengan skeleton.
+      // Data lama tetap tampil, pembaruan berjalan di latar belakang.
       return Promise.resolve()
-        .then(function () { return def.refresh({ silent: !!opts.silent }); })
+        .then(function () { return def.refresh({ silent: true }); })
         .catch(function (error) {
           if (WMS.api.isAuthError(error)) return;
           ui.toast((error && error.message) || 'Gagal memuat ulang data.', 'danger');

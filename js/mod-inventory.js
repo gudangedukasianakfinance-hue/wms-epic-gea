@@ -16,8 +16,12 @@
     sub: 'stock',
     stockItems: [],
     stockLoaded: false,
+    stockVisibleLimit: 100,
+    stockCriteria: null,
     kartuItems: [],
     kartuLoaded: false,
+    kartuVisibleLimit: 100,
+    kartuCriteria: null,
     kartuSku: '',
     stockFilter: null,
     kartuFilter: null
@@ -254,21 +258,55 @@
     });
   }
 
+  /**
+   * Teks pencarian satu baris stok (dipakai filter dari array penuh).
+   *
+   * @param {Object} item Baris Stok_Gudang.
+   * @return {string} Teks gabungan huruf kecil.
+   */
+  function stockSearchText(item) {
+    return [item.Kode_SKU, item.Nama_Barang, item.Lokasi_Rak, stockStatus(item)].join(' ').toLowerCase();
+  }
+
+  /**
+   * Cocokkan teks baris dengan kriteria pencarian ui.filterTable.
+   *
+   * @param {string} text Teks baris (huruf kecil).
+   * @param {Object} criteria Kriteria dari ui.filterTable.
+   * @return {boolean} True bila cocok.
+   */
+  function matchesCriteria(text, criteria) {
+    if (!criteria) return true;
+    var query = String(criteria.query || '').trim().toLowerCase();
+    if (!query) return true;
+    return String(text || '').toLowerCase().indexOf(query) !== -1;
+  }
+
   function renderStock() {
     var tbody = panel && panel.querySelector('#stock-body');
     if (!tbody) return;
 
+    var count = panel.querySelector('#stock-count');
+
     if (!state.stockItems.length) {
       tbody.innerHTML = ui.tableEmptyRow(STOCK_COLSPAN, 'Belum ada posisi stok', 'Stok akan muncul setelah putaway inbound pertama diposting.');
-      if (state.stockFilter) state.stockFilter.apply();
+      if (count) count.textContent = '0 SKU';
       return;
     }
 
-    tbody.innerHTML = state.stockItems.map(function (item) {
+    var criteria = state.stockCriteria || null;
+    var statusFilter = String((criteria && criteria.values && criteria.values['data-status']) || '').trim();
+    var filtered = state.stockItems.filter(function (item) {
+      if (statusFilter && stockStatus(item) !== statusFilter) return false;
+      return matchesCriteria(stockSearchText(item), criteria);
+    });
+    var visible = filtered.slice(0, state.stockVisibleLimit);
+
+    tbody.innerHTML = visible.map(function (item) {
       var status = stockStatus(item);
       var kodeSku = String(item.Kode_SKU || '').trim();
       var namaBarang = String(item.Nama_Barang || '').trim();
-      var search = [kodeSku, namaBarang, item.Lokasi_Rak, status].join(' ').toLowerCase();
+      var search = stockSearchText(item);
       var namaCell = kodeSku
         ? '<button type="button" class="table-link" data-kartu-sku="' + ui.esc(kodeSku) + '" title="Buka Kartu Stok ' + ui.esc(namaBarang || kodeSku) + '">' +
             ui.esc(namaBarang || '—') +
@@ -285,11 +323,14 @@
         '<td class="nowrap muted">' + ui.esc(ui.formatDateTime(item.Last_Update)) + '</td>' +
       '</tr>';
     }).join('') +
+      ui.showMoreRow(STOCK_COLSPAN, visible.length, filtered.length, 'SKU') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + STOCK_COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status.') +
       '</td></tr>';
 
-    if (state.stockFilter) state.stockFilter.apply();
+    var emptyRow = tbody.querySelector('[data-empty-row]');
+    if (emptyRow) emptyRow.hidden = filtered.length > 0;
+    if (count) count.textContent = filtered.length + ' SKU';
   }
 
   function renderStockError(error) {
@@ -303,12 +344,14 @@
     var opts = options || {};
     var tbody = panel && panel.querySelector('#stock-body');
 
-    if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(STOCK_COLSPAN, 5);
+    if (!opts.silent && !state.stockLoaded && tbody) tbody.innerHTML = ui.tableLoadingRow(STOCK_COLSPAN, 5);
 
     try {
       var data = await WMS.api.request('INVENTORY_LIST');
       state.stockItems = stockSort(data && Array.isArray(data.items) ? data.items : []);
       state.stockLoaded = true;
+      // Silent refresh mempertahankan jumlah baris yang sedang dibuka user.
+      if (!opts.silent) state.stockVisibleLimit = ui.TABLE_PAGE_SIZE;
       setStockStats();
       renderStock();
       updateTransferHint();
@@ -334,19 +377,43 @@
     });
   }
 
+  /**
+   * Teks pencarian satu baris kartu stok (dipakai filter dari array penuh).
+   *
+   * @param {Object} item Baris Kartu_Stok.
+   * @return {string} Teks gabungan huruf kecil.
+   */
+  function kartuSearchText(item) {
+    var referensi = String(item.Referensi_ID || '').trim();
+    var namaOutlet = String(item.namaOutlet || '').trim() || referensi;
+    var noDokumen = String(item.noDokumen || '').trim();
+    return [
+      item.ID_Mutasi, item.Kode_SKU, referensi, namaOutlet, noDokumen,
+      item.Jenis_Transaksi, item.PIC
+    ].join(' ').toLowerCase();
+  }
+
   function renderKartu() {
     var tbody = panel && panel.querySelector('#kartu-body');
     if (!tbody) return;
+
+    var count = panel.querySelector('#kartu-count');
 
     if (!state.kartuItems.length) {
       tbody.innerHTML = ui.tableEmptyRow(KARTU_COLSPAN, 'Belum ada mutasi', state.kartuSku
         ? 'Tidak ada pergerakan stok untuk SKU ' + state.kartuSku + '.'
         : 'Mutasi akan tercatat setelah ada transaksi inbound, outbound, transfer, atau adjustment SO.');
-      if (state.kartuFilter) state.kartuFilter.apply();
+      if (count) count.textContent = '0 mutasi';
       return;
     }
 
-    tbody.innerHTML = state.kartuItems.map(function (item) {
+    var criteria = state.kartuCriteria || null;
+    var filtered = state.kartuItems.filter(function (item) {
+      return matchesCriteria(kartuSearchText(item), criteria);
+    });
+    var visible = filtered.slice(0, state.kartuVisibleLimit);
+
+    tbody.innerHTML = visible.map(function (item) {
       var referensi = String(item.Referensi_ID || '').trim();
       var namaOutlet = String(item.namaOutlet || '').trim() || referensi;
       var noDokumen = String(item.noDokumen || '').trim();
@@ -357,10 +424,7 @@
         subtext = '';
       }
 
-      var search = [
-        item.ID_Mutasi, item.Kode_SKU, referensi, item.namaOutlet, noDokumen,
-        item.Jenis_Transaksi, item.PIC
-      ].join(' ').toLowerCase();
+      var search = kartuSearchText(item);
 
       return '<tr data-row data-search="' + ui.esc(search) + '">' +
         '<td class="nowrap muted">' + ui.esc(ui.formatDateTime(item.Tanggal)) + '</td>' +
@@ -374,11 +438,14 @@
         '<td class="nowrap">' + ui.esc(item.PIC || '—') + '</td>' +
       '</tr>';
     }).join('') +
+      ui.showMoreRow(KARTU_COLSPAN, visible.length, filtered.length, 'mutasi') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + KARTU_COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau pilih SKU lain.') +
       '</td></tr>';
 
-    if (state.kartuFilter) state.kartuFilter.apply();
+    var emptyRow = tbody.querySelector('[data-empty-row]');
+    if (emptyRow) emptyRow.hidden = filtered.length > 0;
+    if (count) count.textContent = filtered.length + ' mutasi';
   }
 
   function renderKartuError(error) {
@@ -394,12 +461,14 @@
     var select = panel && panel.querySelector('#kartu-sku');
     state.kartuSku = select ? String(select.value || '').trim().toUpperCase() : '';
 
-    if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(KARTU_COLSPAN, 4);
+    if (!opts.silent && !state.kartuLoaded && tbody) tbody.innerHTML = ui.tableLoadingRow(KARTU_COLSPAN, 4);
 
     try {
       var data = await WMS.api.request('KARTU_STOK', state.kartuSku ? { kodeSku: state.kartuSku } : {});
       state.kartuItems = kartuSort(data && Array.isArray(data.items) ? data.items : []);
       state.kartuLoaded = true;
+      // Silent refresh mempertahankan jumlah baris yang sedang dibuka user.
+      if (!opts.silent) state.kartuVisibleLimit = ui.TABLE_PAGE_SIZE;
       renderKartu();
     } catch (error) {
       if (WMS.api.isAuthError(error)) return;
@@ -444,10 +513,7 @@
       select.value = matched;
     }
 
-    var wasLoaded = state.kartuLoaded;
     showSub('kartu');
-
-    if (wasLoaded) return loadKartu({ silent: false });
   }
 
   /* ------------------------------------------------------------------------
@@ -720,10 +786,14 @@
       section.hidden = section.getAttribute('data-subpanel') !== name;
     });
 
-    if (name === 'stock' && !state.stockLoaded) {
-      loadStock({ silent: false });
-    } else if (name === 'kartu' && !state.kartuLoaded) {
-      loadKartu({ silent: false });
+    if (name === 'stock') {
+      // SWR: saat kembali ke sub-tab yang sudah punya data, tampilkan data lama
+      // dan perbarui diam-diam di latar belakang.
+      if (!state.stockLoaded) loadStock({ silent: false });
+      else loadStock({ silent: true });
+    } else if (name === 'kartu') {
+      if (!state.kartuLoaded) loadKartu({ silent: false });
+      else loadKartu({ silent: true });
     } else if (name === 'transfer') {
       if (!state.stockLoaded) loadStock({ silent: true });
       updateTransferHint();
@@ -744,14 +814,25 @@
       search: '#stock-search',
       count: '#stock-count',
       countLabel: 'SKU',
-      filters: [{ selector: '#stock-filter', attr: 'data-status' }]
+      filters: [{ selector: '#stock-filter', attr: 'data-status' }],
+      onFilter: function (criteria) {
+        // Filter dari seluruh array, lalu render ulang dengan cap 100 baris.
+        state.stockCriteria = criteria;
+        state.stockVisibleLimit = ui.TABLE_PAGE_SIZE;
+        renderStock();
+      }
     });
 
     state.kartuFilter = ui.filterTable({
       table: '#kartu-table',
       search: '#kartu-search',
       count: '#kartu-count',
-      countLabel: 'mutasi'
+      countLabel: 'mutasi',
+      onFilter: function (criteria) {
+        state.kartuCriteria = criteria;
+        state.kartuVisibleLimit = ui.TABLE_PAGE_SIZE;
+        renderKartu();
+      }
     });
 
     root.querySelectorAll('[data-sub]').forEach(function (button) {
@@ -763,9 +844,25 @@
     var stockBody = root.querySelector('#stock-body');
     if (stockBody) {
       stockBody.addEventListener('click', function (event) {
+        var moreButton = event.target.closest ? event.target.closest('[data-show-more]') : null;
+        if (moreButton) {
+          state.stockVisibleLimit += ui.TABLE_PAGE_SIZE;
+          renderStock();
+          return;
+        }
         var trigger = event.target.closest ? event.target.closest('[data-kartu-sku]') : null;
         if (!trigger) return;
         openKartuForSku(trigger.getAttribute('data-kartu-sku'));
+      });
+    }
+
+    var kartuBody = root.querySelector('#kartu-body');
+    if (kartuBody) {
+      kartuBody.addEventListener('click', function (event) {
+        var moreButton = event.target.closest ? event.target.closest('[data-show-more]') : null;
+        if (!moreButton) return;
+        state.kartuVisibleLimit += ui.TABLE_PAGE_SIZE;
+        renderKartu();
       });
     }
 

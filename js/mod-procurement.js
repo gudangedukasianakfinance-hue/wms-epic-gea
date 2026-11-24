@@ -27,7 +27,7 @@
   var JENIS_TANPA = 'TANPA_KESEPAKATAN';
   var JENIS_DENGAN = 'DENGAN_KESEPAKATAN';
 
-  var state = { items: [], loaded: false };
+  var state = { items: [], loaded: false, visibleLimit: 100 };
   var panel = null;
   var filterCtl = null;
 
@@ -349,7 +349,8 @@
         'Belum ada pengajuan order',
         'Buat pengajuan pertama melalui tombol “Buat Pengajuan”. Nomor dokumen dibuat otomatis.'
       );
-      if (filterCtl) filterCtl.apply();
+      var emptyCount = panel.querySelector('#procurement-count');
+      if (emptyCount) emptyCount.textContent = '0 dokumen';
       return;
     }
 
@@ -358,7 +359,15 @@
         String(b.noSurat || '').localeCompare(String(a.noSurat || ''));
     });
 
-    tbody.innerHTML = sorted.map(function (doc) {
+    var query = String((panel.querySelector('#procurement-search') && panel.querySelector('#procurement-search').value) || '').trim().toLowerCase();
+    var statusFilter = String((panel.querySelector('#procurement-filter') && panel.querySelector('#procurement-filter').value) || '');
+    var filtered = sorted.filter(function (doc) {
+      var search = [doc.noSurat, doc.perihal, doc.pihakKeduaNama, doc.pihakKeduaJabatan, jenisLabel(doc), docStatus(doc), doc.diajukanOleh, doc.approvedBy, doc.tanggal].join(' ').toLowerCase();
+      return (!query || search.indexOf(query) !== -1) && (!statusFilter || docStatus(doc) === statusFilter);
+    });
+
+    var visible = filtered.slice(0, state.visibleLimit);
+    tbody.innerHTML = visible.map(function (doc) {
       var status = docStatus(doc);
       var search = [
         doc.noSurat, doc.perihal, doc.pihakKeduaNama, doc.pihakKeduaJabatan,
@@ -376,11 +385,13 @@
         '<td class="actions-cell">' + rowActions(doc) + '</td>' +
       '</tr>';
     }).join('') +
+      ui.showMoreRow(COLSPAN, visible.length, filtered.length, 'dokumen') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status pengajuan.') +
       '</td></tr>';
 
-    if (filterCtl) filterCtl.apply();
+    var count = panel.querySelector('#procurement-count');
+    if (count) count.textContent = filtered.length + ' dokumen';
   }
 
   function renderError(error) {
@@ -394,12 +405,13 @@
     var opts = options || {};
     var tbody = panel && panel.querySelector('#procurement-body');
 
-    if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(COLSPAN, 4);
+    if (!opts.silent && !state.loaded && tbody) tbody.innerHTML = ui.tableLoadingRow(COLSPAN, 4);
 
     try {
       var data = await WMS.api.request('PROCUREMENT_LIST');
       state.items = data && Array.isArray(data.items) ? data.items : [];
       state.loaded = true;
+      if (!opts.silent) state.visibleLimit = ui.TABLE_PAGE_SIZE;
       setStats();
       renderRows();
     } catch (error) {
@@ -1395,7 +1407,11 @@
       search: '#procurement-search',
       count: '#procurement-count',
       countLabel: 'dokumen',
-      filters: [{ selector: '#procurement-filter', attr: 'data-status' }]
+      filters: [{ selector: '#procurement-filter', attr: 'data-status' }],
+      onFilter: function () {
+        state.visibleLimit = ui.TABLE_PAGE_SIZE;
+        renderRows();
+      }
     });
 
     var refreshButton = root.querySelector('[data-action="refresh"]');
@@ -1406,7 +1422,15 @@
     if (createButton) createButton.addEventListener('click', openCreate);
 
     var tbody = root.querySelector('#procurement-body');
-    if (tbody) tbody.addEventListener('click', onRowAction);
+    if (tbody) tbody.addEventListener('click', function (event) {
+      var moreButton = event.target.closest ? event.target.closest('[data-show-more]') : null;
+      if (moreButton) {
+        state.visibleLimit += ui.TABLE_PAGE_SIZE;
+        renderRows();
+        return;
+      }
+      onRowAction(event);
+    });
 
     if (WMS.master && typeof WMS.master.load === 'function') {
       WMS.master.load().catch(function () { /* master opsional saat daftar dimuat */ });

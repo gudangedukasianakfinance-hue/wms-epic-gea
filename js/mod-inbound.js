@@ -11,7 +11,7 @@
 
   var ui = WMS.ui;
   var COLSPAN = 9;
-  var state = { items: [], loaded: false };
+  var state = { items: [], loaded: false, visibleLimit: 100 };
   var panel = null;
   var activeStatusTab = 'PENDING_PUTAWAY';
   var activeQcFilter = '';
@@ -276,7 +276,9 @@
     }
 
     var filteredRows = getFilteredData();
-    tbody.innerHTML = filteredRows.map(buildInboundRow).join('') +
+    var visibleRows = filteredRows.slice(0, state.visibleLimit);
+    tbody.innerHTML = visibleRows.map(buildInboundRow).join('') +
+      ui.showMoreRow(COLSPAN, visibleRows.length, filteredRows.length, 'transaksi') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status.') +
       '</td></tr>';
@@ -297,12 +299,14 @@
     var opts = options || {};
     var tbody = panel && panel.querySelector('#inbound-body');
 
-    if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(COLSPAN, 5);
+    if (!opts.silent && !state.loaded && tbody) tbody.innerHTML = ui.tableLoadingRow(COLSPAN, 5);
 
     try {
       var data = await WMS.api.request('INBOUND_PENDING');
       state.items = data && Array.isArray(data.items) ? data.items : [];
       state.loaded = true;
+      // Silent refresh mempertahankan jumlah baris yang sedang dibuka user.
+      if (!opts.silent) state.visibleLimit = ui.TABLE_PAGE_SIZE;
       setStats();
       renderRows();
     } catch (error) {
@@ -434,6 +438,7 @@
       var tab = event.target.closest ? event.target.closest('.status-tabs [data-status]') : null;
       if (!tab || !root.contains(tab)) return;
       activeStatusTab = String(tab.getAttribute('data-status') || '').trim().toUpperCase();
+      state.visibleLimit = ui.TABLE_PAGE_SIZE;
       root.querySelectorAll('.status-tabs [data-status]').forEach(function (candidate) {
         var selected = candidate === tab;
         candidate.classList.toggle('is-active', selected);
@@ -442,9 +447,17 @@
       renderRows();
     });
     var searchInput = root.querySelector('#inbound-search');
-    if (searchInput) searchInput.addEventListener('input', function () { searchQuery = searchInput.value || ''; renderRows(); });
+    if (searchInput) searchInput.addEventListener('input', ui.debounce(function () {
+      searchQuery = searchInput.value || '';
+      state.visibleLimit = ui.TABLE_PAGE_SIZE;
+      renderRows();
+    }, 300));
     var qcFilter = root.querySelector('#inbound-qc-filter');
-    if (qcFilter) qcFilter.addEventListener('change', function () { activeQcFilter = qcFilter.value || ''; renderRows(); });
+    if (qcFilter) qcFilter.addEventListener('change', function () {
+      activeQcFilter = qcFilter.value || '';
+      state.visibleLimit = ui.TABLE_PAGE_SIZE;
+      renderRows();
+    });
     var refreshButton = root.querySelector('[data-action="refresh"]');
     if (refreshButton) refreshButton.addEventListener('click', function () {
       load({ silent: false });
@@ -483,6 +496,12 @@
 
     var tbody = root.querySelector('#inbound-body');
     if (tbody) tbody.addEventListener('click', function (event) {
+      var moreButton = event.target.closest ? event.target.closest('[data-show-more]') : null;
+      if (moreButton) {
+        state.visibleLimit += ui.TABLE_PAGE_SIZE;
+        renderRows();
+        return;
+      }
       var button = event.target.closest ? event.target.closest('[data-putaway]') : null;
       if (!button) return;
       openPutaway(findItem(button.getAttribute('data-putaway')));

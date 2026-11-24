@@ -396,7 +396,7 @@
     var opts = options || {};
     var tbody = panel && panel.querySelector('#opname-session-body');
 
-    if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(SESSION_COLSPAN, 4);
+    if (!opts.silent && !state.loaded && tbody) tbody.innerHTML = ui.tableLoadingRow(SESSION_COLSPAN, 4);
 
     try {
       var data = await WMS.api.request('OPNAME_PENDING');

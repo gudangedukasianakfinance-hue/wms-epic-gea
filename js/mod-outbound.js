@@ -10,7 +10,7 @@
 
   var ui = WMS.ui;
   var COLSPAN = 8;
-  var state = { items: [], groups: [], expanded: {}, loaded: false };
+  var state = { items: [], groups: [], expanded: {}, loaded: false, visibleLimit: 100 };
   var panel = null;
   var activeStatusTab = 'PICKED';
   var activeOtdFilter = '';
@@ -103,9 +103,8 @@
       '</div>';
   }
 
-  function setStats() {
+  function setStats(groups) {
     if (!panel) return;
-    var groups = groupOutboundItems_(state.items);
     var total = groups.length, progress = 0, delivered = 0, onTime = 0, delay = 0;
     groups.forEach(function (group) {
       if (group.statuses.PICKED || group.statuses.DISPATCHED) progress++;
@@ -452,7 +451,7 @@
           });
         }
 
-        if (searchInput) searchInput.addEventListener('input', applyOutletFilter);
+        if (searchInput) searchInput.addEventListener('input', ui.debounce(applyOutletFilter, 300));
 
         if (createForm) {
           createForm.addEventListener('submit', async function (event) {
@@ -554,9 +553,8 @@
     });
   }
 
-  function updateStatusTabs() {
+  function updateStatusTabs(groups) {
     if (!panel) return;
-    var groups = groupOutboundItems_(state.items);
     var counts = { picked: 0, dispatched: 0, delivered: 0, all: groups.length };
     groups.forEach(function (group) {
       if (group.statuses.PICKED) counts.picked++;
@@ -569,11 +567,11 @@
     });
   }
 
-  function getFilteredData() {
+  function getFilteredData(groups) {
     var status = String(activeStatusTab || '').trim().toUpperCase();
     var otd = String(activeOtdFilter || '').trim().toUpperCase();
     var query = String(searchQuery || '').trim().toLowerCase();
-    return groupOutboundItems_(state.items).filter(function (group) {
+    return groups.filter(function (group) {
       var statuses = Object.keys(group.statuses).map(function (value) { return String(value).trim().toUpperCase(); });
       var otds = Object.keys(group.otd).map(function (value) { return String(value).trim().toUpperCase(); });
       var rowStatus = statuses.indexOf('PICKED') !== -1 ? 'PICKED' : statuses.indexOf('DISPATCHED') !== -1 ? 'DISPATCHED' : statuses.indexOf('DELIVERED') !== -1 ? 'DELIVERED' : (statuses[0] || '');
@@ -584,9 +582,15 @@
   }
 
   function renderRows() {
-    updateStatusTabs();
     var tbody = panel && panel.querySelector('#outbound-body');
     if (!tbody) return;
+
+    // Satu kali pengelompokan per siklus render, dipakai ulang untuk statistik,
+    // tab status, filter, dan pembangunan baris.
+    var groups = groupOutboundItems_(state.items);
+    state.groups = groups;
+    updateStatusTabs(groups);
+    setStats(groups);
 
     if (!state.items.length) {
       tbody.innerHTML = ui.tableEmptyRow(COLSPAN, 'Belum ada order outbound', 'Buat picking order pertama atau tunggu data dari tim penjualan.');
@@ -595,11 +599,9 @@
       return;
     }
 
-    state.groups = groupOutboundItems_(state.items);
-    var visibleGroups = getFilteredData();
-    var visibleKeys = {};
-    visibleGroups.forEach(function (group) { visibleKeys[group.key] = true; });
-    tbody.innerHTML = state.groups.map(function (group) {
+    var filteredGroups = getFilteredData(groups);
+    var visibleGroups = filteredGroups.slice(0, state.visibleLimit);
+    tbody.innerHTML = visibleGroups.map(function (group) {
       var statuses = Object.keys(group.statuses), otds = Object.keys(group.otd);
       var status = group.statuses.PICKED ? 'PICKED' : group.statuses.DISPATCHED ? 'DISPATCHED' : group.statuses.DELIVERED ? 'DELIVERED' : (statuses[0] || '');
       var otd = group.otd.ON_TIME ? 'ON_TIME' : group.otd.DELAY ? 'DELAY' : (otds[0] || '');
@@ -623,20 +625,14 @@
         '<td class="num">'+ui.formatNumber(group.qty)+'</td><td>'+scheduleCell(group)+'</td><td>'+(otd?ui.badge(otd):'<span class="muted">�</span>')+'</td><td>'+ui.badge(status)+'</td><td class="actions-cell"><div class="table-actions">'+ui.pdfLink(Object.keys(group.links)[0])+action+'</div></td></tr>'+
         '<tr class="outbound-detail-row" data-detail-for="'+ui.esc(group.key)+'" '+(expanded?'':'hidden')+'><td colspan="'+COLSPAN+'"><div class="outbound-detail-meta">'+leadTimeTag(customer)+'<span class="muted">Target Tiba: '+ui.esc(ui.formatDate(target))+'</span><span class="muted">Tiba: '+ui.esc(ui.formatDate(actual))+'</span></div><div class="outbound-detail-wrap"><table class="data-table data-table--compact"><thead><tr><th>ID Outbound</th><th>Kode SKU</th><th>Nama Barang</th><th class="num">Qty</th><th>Target Tiba</th></tr></thead><tbody>'+detailRows+'</tbody></table></div></td></tr>';
     }).join('') +
+      ui.showMoreRow(COLSPAN, visibleGroups.length, filteredGroups.length, 'order') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
         ui.emptyState('Tidak ada hasil', 'Ubah kata kunci pencarian atau filter status.') +
       '</td></tr>';
-    tbody.querySelectorAll('tr[data-row]').forEach(function (row) {
-      var trigger = row.querySelector('[data-toggle-group]');
-      var key = trigger ? trigger.getAttribute('data-toggle-group') : '';
-      row.hidden = !visibleKeys[key];
-      var detail = tbody.querySelector('[data-detail-for="' + key + '"]');
-      if (detail) detail.hidden = row.hidden || !state.expanded[key];
-    });
     var emptyRow = tbody.querySelector('[data-empty-row]');
-    if (emptyRow) emptyRow.hidden = visibleGroups.length > 0;
+    if (emptyRow) emptyRow.hidden = filteredGroups.length > 0;
     var count = panel.querySelector('#outbound-count');
-    if (count) count.textContent = visibleGroups.length + ' order';
+    if (count) count.textContent = filteredGroups.length + ' order';
   }
 
   function renderError(error) {
@@ -650,7 +646,7 @@
     var opts = options || {};
     var tbody = panel && panel.querySelector('#outbound-body');
 
-    if (!opts.silent && tbody) tbody.innerHTML = ui.tableLoadingRow(COLSPAN, 5);
+    if (!opts.silent && !state.loaded && tbody) tbody.innerHTML = ui.tableLoadingRow(COLSPAN, 5);
 
     try {
       var results = await Promise.all([
@@ -661,7 +657,8 @@
       state.items = data && Array.isArray(data.items) ? data.items : [];
       outboundSummary = data && data.summary ? data.summary : null;
       state.loaded = true;
-      setStats();
+      // Silent refresh mempertahankan jumlah baris yang sedang dibuka user.
+      if (!opts.silent) state.visibleLimit = ui.TABLE_PAGE_SIZE;
       renderRows();
     } catch (error) {
       if (WMS.api.isAuthError(error)) return;
@@ -1139,6 +1136,7 @@
       var tab = event.target.closest ? event.target.closest('.status-tabs [data-status]') : null;
       if (!tab || !root.contains(tab)) return;
       activeStatusTab = String(tab.getAttribute('data-status') || '').trim().toUpperCase();
+      state.visibleLimit = ui.TABLE_PAGE_SIZE;
       root.querySelectorAll('.status-tabs [data-status]').forEach(function (candidate) {
         var selected = candidate === tab;
         candidate.classList.toggle('is-active', selected);
@@ -1147,9 +1145,17 @@
       renderRows();
     });
     var searchInput = root.querySelector('#outbound-search');
-    if (searchInput) searchInput.addEventListener('input', function () { searchQuery = searchInput.value || ''; renderRows(); });
+    if (searchInput) searchInput.addEventListener('input', ui.debounce(function () {
+      searchQuery = searchInput.value || '';
+      state.visibleLimit = ui.TABLE_PAGE_SIZE;
+      renderRows();
+    }, 300));
     var otdFilter = root.querySelector('#outbound-otd-filter');
-    if (otdFilter) otdFilter.addEventListener('change', function () { activeOtdFilter = otdFilter.value || ''; renderRows(); });
+    if (otdFilter) otdFilter.addEventListener('change', function () {
+      activeOtdFilter = otdFilter.value || '';
+      state.visibleLimit = ui.TABLE_PAGE_SIZE;
+      renderRows();
+    });
     var refreshButton = root.querySelector('[data-action="refresh"]');
     if (refreshButton) refreshButton.addEventListener('click', function () {
       load({ silent: false });
@@ -1193,6 +1199,12 @@
 
     var tbody = root.querySelector('#outbound-body');
     tbody.addEventListener('click', function (event) {
+      var moreButton = event.target.closest ? event.target.closest('[data-show-more]') : null;
+      if (moreButton) {
+        state.visibleLimit += ui.TABLE_PAGE_SIZE;
+        renderRows();
+        return;
+      }
       var toggle = event.target.closest ? event.target.closest('[data-toggle-group]') : null;
       if (toggle) {
         var groupKey = toggle.getAttribute('data-toggle-group');
