@@ -96,6 +96,87 @@ html, body { background: var(--theme-bg); color: var(--theme-text); }
   color: var(--theme-text-soft) !important;
 }
 
+/* Entidad-specific sidebar gradients and contrast tokens. The pages expose
+   their entity through body[data-warehouse]; pages without it use neutral. */
+:root {
+  --sidebar-bg-gradient: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 55%, #EEF2F7 100%);
+  --sidebar-border-color: #CBD5E1;
+  --sidebar-brand-color: #0F172A;
+  --sidebar-menu-color: #1E293B;
+  --sidebar-section-color: #475569;
+  --sidebar-active-bg: rgba(100, 116, 139, 0.14);
+  --sidebar-active-color: #0F172A;
+  --sidebar-footer-color: #475569;
+}
+
+body[data-warehouse="GEA"] {
+  --sidebar-bg-gradient: linear-gradient(180deg, #E6F7F1 0%, #EBF5FF 55%, #F4F9F9 100%);
+  --sidebar-border-color: #CBE7DC;
+  --sidebar-brand-color: #064E3B;
+  --sidebar-active-bg: rgba(16, 185, 129, 0.16);
+  --sidebar-active-color: #065F46;
+  --sidebar-section-color: #475569;
+}
+
+body[data-warehouse="EPIC"] {
+  --sidebar-bg-gradient: linear-gradient(180deg, #FFF1EA 0%, #FFF7ED 55%, #FAF6F3 100%);
+  --sidebar-border-color: #F6D5C3;
+  --sidebar-brand-color: #7C2D12;
+  --sidebar-active-bg: rgba(234, 88, 12, 0.15);
+  --sidebar-active-color: #9A3412;
+  --sidebar-section-color: #57534E;
+}
+
+[data-theme="dark"] {
+  --sidebar-menu-color: #CBD5E1;
+  --sidebar-brand-color: #F8FAFC;
+  --sidebar-active-color: #F8FAFC;
+  --sidebar-footer-color: #CBD5E1;
+}
+
+[data-theme="dark"] body[data-warehouse="GEA"] {
+  --sidebar-bg-gradient: linear-gradient(180deg, #062822 0%, #0A2029 60%, #0B131E 100%);
+  --sidebar-border-color: #16423A;
+  --sidebar-active-bg: rgba(16, 185, 129, 0.22);
+  --sidebar-active-color: #6EE7B7;
+  --sidebar-section-color: #86EFAC;
+}
+
+[data-theme="dark"] body[data-warehouse="EPIC"] {
+  --sidebar-bg-gradient: linear-gradient(180deg, #2B120B 0%, #1F1418 60%, #11131D 100%);
+  --sidebar-border-color: #4A2218;
+  --sidebar-active-bg: rgba(249, 115, 22, 0.22);
+  --sidebar-active-color: #FDBA74;
+  --sidebar-section-color: #FDBA74;
+}
+
+.sidebar {
+  color: var(--sidebar-menu-color) !important;
+  background: var(--sidebar-bg-gradient) !important;
+  border-right: 1px solid var(--sidebar-border-color) !important;
+}
+.sidebar__brand { border-bottom-color: var(--sidebar-border-color) !important; }
+.sidebar__brand strong, .sidebar__brand .brand-text strong { color: var(--sidebar-brand-color) !important; }
+.sidebar__brand small { color: var(--sidebar-section-color) !important; }
+.sidebar__section { color: var(--sidebar-section-color) !important; }
+.nav-item { color: var(--sidebar-menu-color) !important; }
+.nav-item:hover { background: var(--sidebar-active-bg) !important; color: var(--sidebar-active-color) !important; }
+.nav-item.is-active {
+  background: var(--sidebar-active-bg) !important;
+  color: var(--sidebar-active-color) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+.nav-item.is-active::before { background: var(--sidebar-active-color) !important; }
+.nav-item__text small { color: var(--sidebar-section-color) !important; }
+.nav-item.is-active .nav-item__text small { color: var(--sidebar-active-color) !important; }
+.sidebar__footer {
+  color: var(--sidebar-footer-color) !important;
+  border-top-color: var(--sidebar-border-color) !important;
+}
+.sidebar__footer strong, #sidebar-user-name { color: var(--sidebar-brand-color) !important; }
+#sidebar-user-role { color: var(--sidebar-footer-color) !important; }
+
 /* Sidebar section labels - ensure contrast */
 .sidebar__section {
   margin: 14px 10px 6px;
