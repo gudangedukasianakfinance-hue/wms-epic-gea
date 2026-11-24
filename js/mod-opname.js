@@ -13,6 +13,7 @@
   if (!WMS || !WMS.registerModule) return;
 
   var ui = WMS.ui;
+  var loadGen = 0;
   var SESSION_COLSPAN = 5;
   var ITEM_COLSPAN = 9;
   var state = {
@@ -393,6 +394,7 @@
 
   async function load(options) {
     if (state.locked) return;
+    var gen = ++loadGen;
     var opts = options || {};
     var tbody = panel && panel.querySelector('#opname-session-body');
 
@@ -400,6 +402,7 @@
 
     try {
       var data = await WMS.api.request('OPNAME_PENDING');
+      if (gen !== loadGen) return;
       state.items = data && Array.isArray(data.items) ? data.items : [];
       state.drafts = data && Array.isArray(data.draftItems) ? data.draftItems : [];
       state.active = data && Array.isArray(data.activeItems)
@@ -418,6 +421,7 @@
       renderSessions();
       renderDetail();
     } catch (error) {
+      if (gen !== loadGen) return;
       if (WMS.api.isAuthError(error)) return;
       if (opts.silent && state.loaded) {
         ui.toast((error && error.message) || 'Gagal memuat daftar opname.', 'danger');
@@ -538,6 +542,8 @@
           idSo: item.ID_SO,
           decision: 'APPROVED'
         });
+        if (WMS.touch) WMS.touch('inventory');
+        if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
         ui.toast(
           'SO ' + item.ID_SO + ' disetujui. Saldo aktif ' + item.Kode_SKU + ' menjadi ' +
           ui.formatNumber(ui.num(result.saldoAkhir)) + ' unit.',
@@ -571,6 +577,8 @@
           idSo: item.ID_SO,
           decision: 'REJECTED'
         });
+        if (WMS.touch) WMS.touch('inventory');
+        if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
         ui.toast('SO ' + item.ID_SO + ' ditolak. Stok tidak berubah.', 'warning', 'Sesi ditolak');
         await load({ silent: true });
         return true;
@@ -619,6 +627,7 @@
 
     var refreshButton = root.querySelector('[data-action="refresh"]');
     if (refreshButton) refreshButton.addEventListener('click', async function (event) {
+      if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
       var button = event.currentTarget;
       if (button.disabled) return;
       ui.setBusy(button, true, 'Menyinkronkan…');

@@ -12,6 +12,7 @@
   var COLSPAN = 8;
   var state = { items: [], groups: [], expanded: {}, loaded: false, visibleLimit: 100 };
   var panel = null;
+  var loadGen = 0;
   var activeStatusTab = 'PICKED';
   var activeOtdFilter = '';
   var searchQuery = '';
@@ -648,6 +649,7 @@
   }
 
   async function load(options) {
+    var gen = ++loadGen;
     var opts = options || {};
     var tbody = panel && panel.querySelector('#outbound-body');
 
@@ -659,6 +661,7 @@
         loadLeadTimeMap()
       ]);
       var data = results[0];
+      if (gen !== loadGen) return;
       state.items = data && Array.isArray(data.items) ? data.items : [];
       outboundSummary = data && data.summary ? data.summary : null;
       state.loaded = true;
@@ -666,6 +669,7 @@
       if (!opts.silent) state.visibleLimit = ui.TABLE_PAGE_SIZE;
       renderRows();
     } catch (error) {
+      if (gen !== loadGen) return;
       if (WMS.api.isAuthError(error)) return;
       if (opts.silent && state.loaded) {
         ui.toast((error && error.message) || 'Gagal memuat daftar outbound.', 'danger');
@@ -1048,6 +1052,8 @@
             }, { timeout: (WMS.config && WMS.config.UPLOAD_TIMEOUT) || 120000 });
 
             stockMap = null;
+            if (WMS.touch) WMS.touch('inventory');
+            if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
             close('saved');
             ui.toast(
               'Berhasil dispatch ' + (result.itemCount || 1) + ' item untuk No DO ' + (result.noDo || item.No_DO) + '.',
@@ -1062,7 +1068,7 @@
             }
             ui.setBusy(submit, false);
             ui.showInlineError(errorBox, (error && error.message) || 'Dispatch gagal diproses.');
-          }
+          } finally { ui.setBusy(submit, false); }
         });
       }
     });
@@ -1134,6 +1140,8 @@
               idOutbound: item.ID_Outbound,
               tglAktualTiba: actual
             });
+            if (WMS.touch) WMS.touch('inventory');
+            if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
             close('saved');
             ui.toast(
               'Status OTD: ' + (result.statusOtd || '—') + ' untuk ' + item.ID_Outbound + '.',
@@ -1148,7 +1156,7 @@
             }
             ui.setBusy(submit, false);
             ui.showInlineError(errorBox, (error && error.message) || 'Konfirmasi gagal disimpan.');
-          }
+          } finally { ui.setBusy(submit, false); }
         });
       }
     });
@@ -1186,6 +1194,7 @@
     });
     var refreshButton = root.querySelector('[data-action="refresh"]');
     if (refreshButton) refreshButton.addEventListener('click', function () {
+      if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
       load({ silent: false });
     });
 

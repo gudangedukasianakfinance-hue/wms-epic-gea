@@ -13,6 +13,7 @@
   var COLSPAN = 9;
   var state = { items: [], loaded: false, visibleLimit: 100 };
   var panel = null;
+  var loadGen = 0;
   var activeStatusTab = 'PENDING_PUTAWAY';
   var activeQcFilter = '';
   var searchQuery = '';
@@ -296,6 +297,7 @@
   }
 
   async function load(options) {
+    var gen = ++loadGen;
     var opts = options || {};
     var tbody = panel && panel.querySelector('#inbound-body');
 
@@ -303,6 +305,7 @@
 
     try {
       var data = await WMS.api.request('INBOUND_PENDING');
+      if (gen !== loadGen) return;
       state.items = data && Array.isArray(data.items) ? data.items : [];
       state.loaded = true;
       // Silent refresh mempertahankan jumlah baris yang sedang dibuka user.
@@ -310,6 +313,7 @@
       setStats();
       renderRows();
     } catch (error) {
+      if (gen !== loadGen) return;
       if (WMS.api.isAuthError(error)) return;
       if (opts.silent && state.loaded) {
         ui.toast((error && error.message) || 'Gagal memuat antrean inbound.', 'danger');
@@ -400,6 +404,8 @@
               fileBase64: prepared ? prepared.base64 : '',
               fileName: prepared ? prepared.fileName : ''
             });
+            if (WMS.touch) WMS.touch('inventory');
+            if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
 
             close('saved');
             ui.toast(
@@ -415,7 +421,7 @@
             }
             ui.setBusy(submit, false);
             ui.showInlineError(errorBox, (error && error.message) || 'Putaway gagal diproses.');
-          }
+          } finally { ui.setBusy(submit, false); }
         });
       }
     });
@@ -460,6 +466,7 @@
     });
     var refreshButton = root.querySelector('[data-action="refresh"]');
     if (refreshButton) refreshButton.addEventListener('click', function () {
+      if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
       load({ silent: false });
     });
 
@@ -517,6 +524,6 @@
     title: 'Inbound',
     description: 'Putaway penerimaan',
     mount: mount,
-    refresh: function () { return load({ silent: true }); }
+    refresh: function () { if (WMS.consumeDirty) WMS.consumeDirty('inbound'); return load({ silent: true }); }
   });
 })(window);

@@ -6,6 +6,7 @@
   var ui = WMS.ui;
   var state = { items: [] };
   var panel;
+  var loadGen = 0;
 
   function template() {
     return '<div class="module-head"><div><p class="eyebrow">Administrasi · Akses</p><h2>Manajemen Pengguna</h2><p class="module-head__desc">Kelola akun, hak gudang, status aktif, dan reset PIN.</p></div><div class="module-head__actions"><button class="btn btn--ghost btn--sm" data-action="refresh">'+ui.ICONS.refresh+' Muat Ulang</button><button class="btn btn--primary btn--sm" data-action="create">+ Tambah Pengguna</button></div></div>'+
@@ -22,10 +23,11 @@
     ui.filterTable({table:'#users-table',search:'#users-search',count:'#users-count',countLabel:'pengguna'});
   }
   async function load() {
+    var gen = ++loadGen;
     if (!panel || !panel.querySelector('#users-body')) return;
     var body = panel.querySelector('#users-body'); body.innerHTML = ui.tableLoadingRow(8,4);
-    try { var data = await WMS.api.request('USERS_LIST'); state.items = data && Array.isArray(data.items) ? data.items : []; render(); }
-    catch (e) { if (WMS.api.isAuthError(e)) return; body.innerHTML=ui.tableErrorRow(8,e.message); ui.bindRetry(body,load); }
+    try { var data = await WMS.api.request('USERS_LIST'); if (gen !== loadGen) return; state.items = data && Array.isArray(data.items) ? data.items : []; render(); }
+    catch (e) { if (gen !== loadGen) return; if (WMS.api.isAuthError(e)) return; body.innerHTML=ui.tableErrorRow(8,e.message); ui.bindRetry(body,load); }
   }
   function formMarkup(edit, user) {
     user = user || {};

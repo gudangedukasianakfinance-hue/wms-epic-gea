@@ -27,6 +27,8 @@
     kartuFilter: null
   };
   var panel = null;
+  var stockLoadGen = 0;
+  var kartuLoadGen = 0;
   var transferFile = null;
 
   function entity(code) {
@@ -341,6 +343,7 @@
   }
 
   async function loadStock(options) {
+    var gen = ++stockLoadGen;
     var opts = options || {};
     var tbody = panel && panel.querySelector('#stock-body');
 
@@ -348,6 +351,7 @@
 
     try {
       var data = await WMS.api.request('INVENTORY_LIST');
+      if (gen !== stockLoadGen) return;
       state.stockItems = stockSort(data && Array.isArray(data.items) ? data.items : []);
       state.stockLoaded = true;
       // Silent refresh mempertahankan jumlah baris yang sedang dibuka user.
@@ -356,6 +360,7 @@
       renderStock();
       updateTransferHint();
     } catch (error) {
+      if (gen !== stockLoadGen) return;
       if (WMS.api.isAuthError(error)) return;
       if (opts.silent && state.stockLoaded) {
         ui.toast((error && error.message) || 'Gagal memuat stok.', 'danger');
@@ -456,6 +461,7 @@
   }
 
   async function loadKartu(options) {
+    var gen = ++kartuLoadGen;
     var opts = options || {};
     var tbody = panel && panel.querySelector('#kartu-body');
     var select = panel && panel.querySelector('#kartu-sku');
@@ -465,12 +471,14 @@
 
     try {
       var data = await WMS.api.request('KARTU_STOK', state.kartuSku ? { kodeSku: state.kartuSku } : {});
+      if (gen !== kartuLoadGen) return;
       state.kartuItems = kartuSort(data && Array.isArray(data.items) ? data.items : []);
       state.kartuLoaded = true;
       // Silent refresh mempertahankan jumlah baris yang sedang dibuka user.
       if (!opts.silent) state.kartuVisibleLimit = ui.TABLE_PAGE_SIZE;
       renderKartu();
     } catch (error) {
+      if (gen !== kartuLoadGen) return;
       if (WMS.api.isAuthError(error)) return;
       if (opts.silent && state.kartuLoaded) {
         ui.toast((error && error.message) || 'Gagal memuat kartu stok.', 'danger');
@@ -775,6 +783,7 @@
 
   function showSub(name) {
     state.sub = name;
+    var forceFresh = WMS.consumeDirty && WMS.consumeDirty('inventory');
 
     panel.querySelectorAll('[data-sub]').forEach(function (button) {
       var active = button.getAttribute('data-sub') === name;
@@ -789,10 +798,10 @@
     if (name === 'stock') {
       // SWR: saat kembali ke sub-tab yang sudah punya data, tampilkan data lama
       // dan perbarui diam-diam di latar belakang.
-      if (!state.stockLoaded) loadStock({ silent: false });
+      if (forceFresh || !state.stockLoaded) loadStock({ silent: false });
       else loadStock({ silent: true });
     } else if (name === 'kartu') {
-      if (!state.kartuLoaded) loadKartu({ silent: false });
+      if (forceFresh || !state.kartuLoaded) loadKartu({ silent: false });
       else loadKartu({ silent: true });
     } else if (name === 'transfer') {
       if (!state.stockLoaded) loadStock({ silent: true });
@@ -801,6 +810,8 @@
   }
 
   function refreshCurrent() {
+    if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
+    if (WMS.consumeDirty) WMS.consumeDirty('inventory');
     if (state.sub === 'kartu') return loadKartu({ silent: false });
     return loadStock({ silent: false });
   }
@@ -900,6 +911,7 @@
     description: 'Stok, kartu stok & mutasi',
     mount: mount,
     refresh: function () {
+      if (WMS.consumeDirty) WMS.consumeDirty('inventory');
       if (state.sub === 'kartu') return loadKartu({ silent: true });
       return loadStock({ silent: true });
     },

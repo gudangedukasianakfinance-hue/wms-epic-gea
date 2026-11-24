@@ -187,6 +187,10 @@
 
   var masterInflight = null;
   var masterLastAttempt = 0;
+  var dirtyModules = {};
+
+  WMS.touch = function (key) { dirtyModules[String(key || '')] = true; };
+  WMS.consumeDirty = function (key) { key = String(key || ''); var dirty = !!dirtyModules[key]; delete dirtyModules[key]; return dirty; };
 
   function readMasterCache() {
     try {
@@ -285,12 +289,21 @@
     }) || null;
   }
 
+  function invalidateMaster() {
+    masterLastAttempt = 0;
+    masterInflight = null;
+    state.master.items = [];
+    state.master.savedAt = 0;
+    state.master.source = 'none';
+    try { global.localStorage.removeItem(CONFIG.MASTER_CACHE_KEY || 'wms.master.v1'); } catch (error) { /* localStorage optional */ }
+  }
   WMS.master = {
     load: loadMasterData,
     items: masterItems,
     find: findMasterItem,
     isFresh: masterIsFresh,
-    refresh: function () { return loadMasterData({ force: true }); }
+    refresh: function () { invalidateMaster(); return loadMasterData({ force: true, skipCache: true }); },
+    invalidate: invalidateMaster
   };
 
   /* ------------------------------------------------------------------------
@@ -979,6 +992,9 @@
     }
 
     if (typeof def.refresh === 'function') {
+      if ((id === 'inventory' || id === 'inbound') && WMS.consumeDirty(id)) {
+        return Promise.resolve(def.refresh({ silent: true }));
+      }
       // Modul sudah pernah dimount: jangan kosongkan tabel dengan skeleton.
       // Data lama tetap tampil, pembaruan berjalan di latar belakang.
       return Promise.resolve()
@@ -993,6 +1009,7 @@
   }
 
   function refreshActive() {
+    if (state.activeModule === 'inventory' || state.activeModule === 'inbound') WMS.consumeDirty(state.activeModule);
     var def = state.modules[state.activeModule];
     if (def && typeof def.refresh === 'function') {
       return Promise.resolve(def.refresh({ silent: true })).catch(function (error) {

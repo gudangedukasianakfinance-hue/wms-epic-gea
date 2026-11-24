@@ -18,6 +18,7 @@
   if (!WMS || !WMS.registerModule) return;
 
   var ui = WMS.ui;
+  var loadGen = 0;
   var COLSPAN = 8;
   var DEFAULT_DP = 50;
   var DEFAULT_DURATION = 21;
@@ -402,6 +403,7 @@
   }
 
   async function load(options) {
+    var gen = ++loadGen;
     var opts = options || {};
     var tbody = panel && panel.querySelector('#procurement-body');
 
@@ -409,12 +411,14 @@
 
     try {
       var data = await WMS.api.request('PROCUREMENT_LIST');
+      if (gen !== loadGen) return;
       state.items = data && Array.isArray(data.items) ? data.items : [];
       state.loaded = true;
       if (!opts.silent) state.visibleLimit = ui.TABLE_PAGE_SIZE;
       setStats();
       renderRows();
     } catch (error) {
+      if (gen !== loadGen) return;
       if (WMS.api.isAuthError(error)) return;
       if (opts.silent && state.loaded) {
         ui.toast((error && error.message) || 'Gagal memuat pengajuan order.', 'danger');
@@ -585,6 +589,8 @@
           noSurat: doc.noSurat,
           decision: decision
         });
+        if (approving && WMS.touch) WMS.touch('inbound');
+        if (approving && WMS.master && WMS.master.invalidate) WMS.master.invalidate();
         var inboundCreated = Math.max(0, Number(result && result.inboundCreatedCount) || 0);
 
         if (approving && inboundCreated > 0) {
@@ -1416,6 +1422,7 @@
 
     var refreshButton = root.querySelector('[data-action="refresh"]');
     if (refreshButton) refreshButton.addEventListener('click', function () {
+      if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
       load({ silent: false });
     });
     var createButton = root.querySelector('[data-action="create"]');
