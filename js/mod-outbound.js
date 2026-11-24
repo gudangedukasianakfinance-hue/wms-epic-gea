@@ -143,7 +143,7 @@
       var key = noDo ? noDo.toUpperCase() : String(item.ID_Outbound || '').trim().toUpperCase();
       if (!key) return;
       if (!index[key]) {
-        index[key] = { key:key, noDo:noDo || item.ID_Outbound || '', items:[], statuses:{}, otd:{}, qty:0, customers:{}, targets:{}, actuals:{}, links:{} };
+        index[key] = { key:key, noDo:noDo || item.ID_Outbound || '', items:[], statuses:{}, otd:{}, qty:0, customers:{}, targets:{}, dispatches:{}, actuals:{}, links:{} };
         groups.push(index[key]);
       }
       var group = index[key];
@@ -154,7 +154,9 @@
       if (status) group.statuses[status] = true;
       if (otd) group.otd[otd] = true;
       if (item.Tujuan_Customer) group.customers[String(item.Tujuan_Customer).trim()] = true;
-      if (item.Tgl_Target_Kirim) group.targets[String(item.Tgl_Target_Kirim).slice(0,10)] = true;
+      var targetDate = item.Target_Tiba || item.Tgl_Target_Kirim;
+      if (targetDate) group.targets[String(targetDate).slice(0,10)] = true;
+      if (item.Tanggal_Dispatch) group.dispatches[String(item.Tanggal_Dispatch).slice(0,10)] = true;
       if (item.Tgl_Aktual_Tiba) group.actuals[String(item.Tgl_Aktual_Tiba).slice(0,10)] = true;
       if (item.Link_PDF) group.links[String(item.Link_PDF)] = true;
     });
@@ -175,9 +177,10 @@
 
     leadTimeItems.forEach(function (item) {
       var key = outletKey(item && item.Nama_Outlet);
-      if (!key) return;
-      if (Object.prototype.hasOwnProperty.call(leadTimeMap, key)) return;
-      leadTimeMap[key] = ui.num(item.Lead_Time_Hari);
+      var days = ui.num(item && item.Lead_Time_Hari);
+      if (key && !Object.prototype.hasOwnProperty.call(leadTimeMap, key)) leadTimeMap[key] = days;
+      var id = outletKey(item && item.ID_Outlet);
+      if (id && !Object.prototype.hasOwnProperty.call(leadTimeMap, id)) leadTimeMap[id] = days;
     });
   }
 
@@ -218,10 +221,12 @@
 
   function scheduleCell(group) {
     var target = Object.keys(group.targets)[0] || '';
+    var dispatch = Object.keys(group.dispatches)[0] || '';
     var actual = Object.keys(group.actuals)[0] || '';
     var customer = Object.keys(group.customers)[0] || '';
 
     return '<div class="outbound-schedule">' +
+      '<span>Tgl Kirim: <strong>' + ui.esc(ui.formatDate(dispatch)) + '</strong></span>' +
       '<span class="outbound-schedule__target">Target Tiba: <strong>' + ui.esc(ui.formatDate(target)) + '</strong></span>' +
       '<span class="outbound-schedule__meta">' + leadTimeTag(customer) +
         '<span class="muted"> · Tiba: ' + ui.esc(ui.formatDate(actual)) + '</span></span>' +
@@ -617,13 +622,13 @@
       if (group.statuses.DELIVERED && !group.statuses.PICKED && !group.statuses.DISPATCHED) action += '<span class="muted" style="font-size:11.5px">Selesai</span>';
       action += '<button type="button" class="btn btn--ghost btn--sm" data-edit-dates="'+ui.esc(first.ID_Outbound)+'">Edit Tanggal</button>';
       var detailRows = group.items.map(function (item) {
-        return '<tr><td>'+ui.esc(item.ID_Outbound||'�')+'</td><td>'+ui.esc(item.Kode_SKU||'�')+'</td><td>'+ui.esc(item.Nama_Barang||'�')+'</td><td class="num">'+ui.formatQty(item.Qty)+'</td><td>'+ui.esc(ui.formatDate(item.Tgl_Target_Kirim))+'</td></tr>';
+        return '<tr><td>'+ui.esc(item.ID_Outbound||'�')+'</td><td>'+ui.esc(item.Kode_SKU||'�')+'</td><td>'+ui.esc(item.Nama_Barang||'�')+'</td><td class="num">'+ui.formatQty(item.Qty)+'</td><td>'+ui.esc(ui.formatDate(item.Tanggal_Dispatch))+'</td><td>'+ui.esc(ui.formatDate(item.Target_Tiba || item.Tgl_Target_Kirim))+'</td></tr>';
       }).join('');
       return '<tr data-row data-status="'+ui.esc(status)+'" data-otd="'+ui.esc(otd||'NONE')+'" data-search="'+ui.esc(search)+'">'+
         '<td class="outbound-group-toggle" colspan="2"><button type="button" class="outbound-expand" data-toggle-group="'+ui.esc(group.key)+'" aria-expanded="'+expanded+'"><span class="outbound-expand__arrow">'+(expanded?'&#9662;':'&#9656;')+'</span><strong>'+ui.esc(group.noDo)+'</strong><span class="muted">'+ui.esc(customer)+'</span></button></td>'+
         '<td><button type="button" class="outbound-summary-toggle" data-toggle-group="'+ui.esc(group.key)+'" aria-expanded="'+expanded+'">'+group.items.length+' Item SKU &bull; Total '+ui.formatNumber(group.qty)+' pcs</button></td>'+
         '<td class="num">'+ui.formatNumber(group.qty)+'</td><td>'+scheduleCell(group)+'</td><td>'+(otd?ui.badge(otd):'<span class="muted">�</span>')+'</td><td>'+ui.badge(status)+'</td><td class="actions-cell"><div class="table-actions">'+ui.pdfLink(Object.keys(group.links)[0])+action+'</div></td></tr>'+
-        '<tr class="outbound-detail-row" data-detail-for="'+ui.esc(group.key)+'" '+(expanded?'':'hidden')+'><td colspan="'+COLSPAN+'"><div class="outbound-detail-meta">'+leadTimeTag(customer)+'<span class="muted">Target Tiba: '+ui.esc(ui.formatDate(target))+'</span><span class="muted">Tiba: '+ui.esc(ui.formatDate(actual))+'</span></div><div class="outbound-detail-wrap"><table class="data-table data-table--compact"><thead><tr><th>ID Outbound</th><th>Kode SKU</th><th>Nama Barang</th><th class="num">Qty</th><th>Target Tiba</th></tr></thead><tbody>'+detailRows+'</tbody></table></div></td></tr>';
+        '<tr class="outbound-detail-row" data-detail-for="'+ui.esc(group.key)+'" '+(expanded?'':'hidden')+'><td colspan="'+COLSPAN+'"><div class="outbound-detail-meta">'+leadTimeTag(customer)+'<span class="muted">Tgl Kirim: '+ui.esc(ui.formatDate(Object.keys(group.dispatches)[0] || ''))+'</span><span class="muted">Target Tiba: '+ui.esc(ui.formatDate(target))+'</span><span class="muted">Tiba: '+ui.esc(ui.formatDate(actual))+'</span></div><div class="outbound-detail-wrap"><table class="data-table data-table--compact"><thead><tr><th>ID Outbound</th><th>Kode SKU</th><th>Nama Barang</th><th class="num">Qty</th><th>Tgl Kirim</th><th>Target Tiba</th></tr></thead><tbody>'+detailRows+'</tbody></table></div></td></tr>';
     }).join('') +
       ui.showMoreRow(COLSPAN, visibleGroups.length, filteredGroups.length, 'order') +
       '<tr class="table-state" data-empty-row hidden><td colspan="' + COLSPAN + '">' +
@@ -684,10 +689,10 @@
 
   function openEditDates(group) {
     if (!group) return;
-    var target = Object.keys(group.targets)[0] || '';
+    var dispatch = Object.keys(group.dispatches)[0] || '';
     var actual = Object.keys(group.actuals)[0] || '';
     var body = '<form id="outbound-dates-form" class="form-grid" novalidate>' +
-      '<div class="field"><label for="edit-target-date">Tanggal Kirim / Target</label><input class="input" id="edit-target-date" type="date" value="'+ui.esc(target)+'"></div>' +
+      '<div class="field"><label for="edit-dispatch-date">Tanggal Kirim</label><input class="input" id="edit-dispatch-date" type="date" value="'+ui.esc(dispatch)+'"></div>' +
       '<div class="field"><label for="edit-actual-date">Tanggal Aktual Terima</label><input class="input" id="edit-actual-date" type="date" value="'+ui.esc(actual)+'"></div>' +
       '<div class="form-alert" id="edit-dates-error" hidden role="alert"></div></form>';
     ui.openModal({eyebrow:'Outbound � Tanggal',title:'Edit Tanggal Pengiriman',subtitle:group.noDo,body:body,
@@ -697,11 +702,11 @@
         if (!datesForm) return;
         datesForm.addEventListener('submit',async function(event){
           event.preventDefault(); var err=modal.querySelector('#edit-dates-error'); var submit=modal.querySelector('[data-submit]');
-          var targetInput=modal.querySelector('#edit-target-date'), actualInput=modal.querySelector('#edit-actual-date');
-          if(!err||!targetInput||!actualInput){ui.toast('Form tanggal tidak lengkap. Muat ulang modul lalu coba lagi.','danger');return;}
-          var targetValue=targetInput.value; var actualValue=actualInput.value;
-          if(!targetValue&&!actualValue){err.textContent='Isi setidaknya satu tanggal.';err.hidden=false;return;}
-          var params={noDo:group.noDo}; if(targetValue)params.tglTargetKirim=targetValue; if(actualValue)params.tglAktualTiba=actualValue;
+          var dispatchInput=modal.querySelector('#edit-dispatch-date'), actualInput=modal.querySelector('#edit-actual-date');
+          if(!err||!dispatchInput||!actualInput){ui.toast('Form tanggal tidak lengkap. Muat ulang modul lalu coba lagi.','danger');return;}
+          var dispatchValue=dispatchInput.value; var actualValue=actualInput.value;
+          if(!dispatchValue&&!actualValue){err.textContent='Isi setidaknya satu tanggal.';err.hidden=false;return;}
+          var params={noDo:group.noDo}; if(dispatchValue)params.tglDispatch=dispatchValue; if(actualValue)params.tglAktualTiba=actualValue;
           ui.setBusy(submit,true,'Menyimpan�');
           try{await WMS.api.request('OUTBOUND_UPDATE_DATES',params);close('saved');ui.toast('Tanggal seluruh item '+group.noDo+' berhasil diperbarui.','success');await load({silent:false});}
           catch(error){if(WMS.api.isAuthError(error)){close('auth');return;}ui.setBusy(submit,false);err.textContent=error.message||'Tanggal gagal diperbarui.';err.hidden=false;}
@@ -959,7 +964,8 @@
       '<div class="detail"><span class="detail__label">Qty</span><span class="detail__value">' + ui.formatQty(item.Qty) + ' unit</span></div>' +
       '<div class="detail detail--full"><span class="detail__label">Barang</span><span class="detail__value">' + ui.esc(item.Kode_SKU || '—') + ' · ' + ui.esc(item.Nama_Barang || '') + '</span></div>' +
       '<div class="detail"><span class="detail__label">Lead Time Outlet</span><span class="detail__value">' + leadTimeTag(item.Tujuan_Customer) + '</span></div>' +
-      '<div class="detail"><span class="detail__label">Target Tiba</span><span class="detail__value">' + ui.esc(ui.formatDate(item.Tgl_Target_Kirim)) + '</span></div>' +
+      '<div class="detail"><span class="detail__label">Tgl Kirim</span><span class="detail__value">' + ui.esc(ui.formatDate(item.Tanggal_Dispatch)) + '</span></div>' +
+      '<div class="detail"><span class="detail__label">Target Tiba</span><span class="detail__value">' + ui.esc(ui.formatDate(item.Target_Tiba || item.Tgl_Target_Kirim)) + '</span></div>' +
       '<div class="detail"><span class="detail__label">Status Kirim</span><span class="detail__value">' + ui.badge(item.Status_Kirim) + '</span></div>' +
     '</div>';
   }
@@ -967,13 +973,25 @@
   function openDispatch(item) {
     if (!item) return;
 
+    var initialDispatch = String(item.Tanggal_Dispatch || '').slice(0, 10) || ui.todayIso();
+    var initialLeadTime = leadTimeInfo(item.Tujuan_Customer || item.Kode_Outlet).days;
+    function addDaysIso(date, days) {
+      if (!date) return '';
+      var parts = date.split('-');
+      var value = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+      value.setUTCDate(value.getUTCDate() + Math.max(0, Number(days) || 0));
+      return value.toISOString().slice(0, 10);
+    }
+
     var body =
       outboundDetail(item) +
       '<form id="dispatch-form" novalidate>' +
         '<div class="field">' +
-          '<label for="dispatch-target">Tanggal Kirim / Target Kirim</label>' +
-          '<input class="input" id="dispatch-target" type="date" value="' + ui.esc(String(item.Tgl_Target_Kirim || '').slice(0, 10)) + '">' +
+          '<label for="dispatch-date">Tanggal Kirim</label>' +
+          '<input class="input" id="dispatch-date" type="date" value="' + ui.esc(initialDispatch) + '">' +
+          '<p class="field-hint">Target Tiba dihitung otomatis dari lead time outlet.</p>' +
         '</div>' +
+        '<div class="confirm-panel" style="margin-bottom:12px" data-dispatch-target-preview></div>' +
         '<div class="field">' +
           '<label>Lampiran Bukti Kirim / Resi PDF (Opsional)</label>' +
           fileDrop('dispatch-file') +
@@ -1000,6 +1018,16 @@
         var errorBox = modal.querySelector('#dispatch-error');
         var submit = modal.querySelector('[data-submit]');
         var picker = bindFilePicker(modal, 'dispatch-file');
+        var dispatchInput = modal.querySelector('#dispatch-date');
+        var targetPreview = modal.querySelector('[data-dispatch-target-preview]');
+        function updateTargetPreview() {
+          var dispatchDate = String(dispatchInput.value || '').trim();
+          var targetDate = addDaysIso(dispatchDate, initialLeadTime);
+          targetPreview.innerHTML = ui.ICONS.info + '<span>Target Tiba: <strong>' + ui.esc(ui.formatDate(targetDate)) +
+            '</strong> (' + ui.esc(initialLeadTime) + ' hari lead time).</span>';
+        }
+        dispatchInput.addEventListener('input', updateTargetPreview);
+        updateTargetPreview();
 
         form.addEventListener('submit', async function (event) {
           event.preventDefault();
@@ -1010,11 +1038,11 @@
 
           try {
             var prepared = file ? await WMS.file.prepare(file) : null;
-            var targetDate = String(modal.querySelector('#dispatch-target').value || '').trim();
+            var dispatchDate = String(dispatchInput.value || '').trim();
             var result = await WMS.api.request('OUTBOUND_DISPATCH', {
               noDo: item.No_DO,
               idOutbound: item.ID_Outbound,
-              tglTargetKirim: targetDate,
+              tglDispatch: dispatchDate,
               fileBase64: prepared ? prepared.base64 : '',
               fileName: prepared ? prepared.fileName : ''
             }, { timeout: (WMS.config && WMS.config.UPLOAD_TIMEOUT) || 120000 });
@@ -1070,7 +1098,7 @@
         var preview = modal.querySelector('[data-otd-preview]');
         var errorBox = modal.querySelector('#delivered-error');
         var submit = modal.querySelector('[data-submit]');
-        var target = String(item.Tgl_Target_Kirim || '').slice(0, 10);
+        var target = String(item.Target_Tiba || item.Tgl_Target_Kirim || '').slice(0, 10);
 
         function updatePreview() {
           var actual = String(dateInput.value || '').slice(0, 10);
