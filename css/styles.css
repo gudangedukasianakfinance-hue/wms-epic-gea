@@ -698,6 +698,55 @@ html, body { background: var(--theme-bg); color: var(--theme-text); }
   background: var(--surface);
 }
 
+/* --- Dark Mode: Status Tabs & Sub-nav --- */
+[data-theme="dark"] .status-tabs__tab.is-active { color: var(--primary-color) !important; }
+[data-theme="dark"] .subnav__btn.is-active { color: var(--primary-color) !important; }
+
+/* --- Dark Mode: Login Modal & Portal --- */
+[data-theme="dark"] .login-modal, [data-theme="dark"] .login-modal * { background-color: var(--theme-card) !important; color: var(--theme-text) !important; }
+[data-theme="dark"] .login-modal .input, [data-theme="dark"] .login-modal .select { background: var(--theme-input) !important; color: var(--theme-text) !important; border-color: var(--theme-border) !important; }
+[data-theme="dark"] .login-brand__meta strong { color: var(--theme-text); }
+[data-theme="dark"] .login-brand__meta span { color: var(--theme-muted); }
+[data-theme="dark"] .login-heading { color: var(--theme-text); }
+[data-theme="dark"] .login-sub { color: var(--theme-muted); }
+
+/* --- Dark Mode: Portal --- */
+[data-theme="dark"] .portal-header { background: rgba(15, 23, 42, 0.96) !important; color: var(--theme-text); }
+[data-theme="dark"] .portal-header * { color: var(--theme-text) !important; }
+[data-theme="dark"] .portal-card { background: var(--theme-card) !important; color: var(--theme-text) !important; border-color: var(--theme-border); }
+[data-theme="dark"] .portal-card__title { color: var(--theme-text); }
+[data-theme="dark"] .portal-note { background: var(--theme-card) !important; color: var(--theme-text); }
+[data-theme="dark"] .portal-note__item { background: var(--theme-card) !important; color: var(--theme-text); }
+[data-theme="dark"] .portal-note__item strong { color: var(--theme-text); }
+[data-theme="dark"] .portal-note__item span { color: var(--theme-muted); }
+[data-theme="dark"] .portal-footer { color: var(--theme-muted); }
+[data-theme="dark"] .portal-footer strong { color: var(--theme-text); }
+
+/* --- Dark Mode: Status Tabs specific hover states --- */
+[data-theme="dark"] .status-tabs__tab:hover { color: var(--theme-text); }
+
+/* --- Dark Mode: Toast (inline in base.css, verified) --- */
+
+/* --- Dark Mode: Portal body --- */
+[data-theme="dark"] body.portal-body { background: var(--theme-bg) !important; color: var(--theme-text) !important; }
+
+/* --- Dark Mode: App Footer --- */
+[data-theme="dark"] .app-footer { color: var(--theme-muted) !important; }
+[data-theme="dark"] .app-footer strong { color: var(--theme-text) !important; }
+
+/* --- Dark Mode: Toolbar --- */
+[data-theme="dark"] .toolbar { background: var(--theme-card) !important; }
+
+/* --- Dark Mode: Skeleton --- */
+[data-theme="dark"] .skeleton { background: linear-gradient(90deg, #1e293b 25%, #263349 37%, #1e293b 63%) !important; }
+
+/* --- Dark Mode: File-related styles --- */
+[data-theme="dark"] .file-drop { background: var(--theme-card); border-color: var(--theme-border); }
+[data-theme="dark"] .file-drop__icon { background: var(--surface); color: var(--theme-text); }
+[data-theme="dark"] .file-chip { background: var(--surface); }
+[data-theme="dark"] .file-chip__name { color: var(--theme-text); }
+[data-theme="dark"] .file-chip__icon { background: var(--danger-bg); color: var(--danger); }
+
 /* --- Verify: no hardcoded colors override theme variables --- */
 /* The only hardcoded colors below are inside [data-theme="light"] or [data-theme="dark"] 
    rules, so they never override the opposite theme. */

@@ -47,3 +47,28 @@ a,
   background: var(--badge-accent);
   color: #431407;
 }
+
+/* --- Dark Mode: Kontras teks pada Mode Gelap (Dark Mode) --- */
+/* Semua komponen beraksen oranye harus memakai teks gelap pada tema ini.
+   Di mode gelap global (styles.css), komponen akan ditimpa dengan warna
+   terang, tapi theme-epic.css ini memastikan konsistensi per-entitas. */
+
+[data-theme="dark"] .pill,
+[data-theme="dark"] .btn--secondary,
+[data-theme="dark"] .avatar {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] a,
+[data-theme="dark"] .link,
+[data-theme="dark"] .eyebrow,
+[data-theme="dark"] .table-link,
+[data-theme="dark"] .subnav__btn.is-active {
+  color: var(--primary-color) !important;
+}
+
+[data-theme="dark"] .badge--accent {
+  color: var(--text-muted) !important;
+  background: var(--primary-light) !important;
+  border-color: var(--primary-light) !important;
+}

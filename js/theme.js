@@ -3,7 +3,12 @@
   var KEY = 'wms.theme';
   function apply(theme) {
     theme = theme === 'dark' ? 'dark' : 'light';
-    if (global.document) global.document.documentElement.setAttribute('data-theme', theme);
+    // Apply early on <html> so critical CSS vars are available on <body>
+    if (global.document) {
+      global.document.documentElement.setAttribute('data-theme', theme);
+      // Also set on <body> if it exists (loaded after <html>)
+      if (global.document.body) global.document.body.setAttribute('data-theme', theme);
+    }
     try { global.localStorage.setItem(KEY, theme); } catch (e) {}
     global.document && global.document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
       button.textContent = theme === 'dark' ? '☀️' : '🌙';
