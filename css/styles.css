@@ -1,0 +1,37 @@
+:root {
+  color-scheme: light;
+  --theme-bg: #f1f5f9; --theme-card: #ffffff; --theme-text: #0f172a;
+  --theme-muted: #64748b; --theme-border: #e2e8f0; --theme-input: #ffffff;
+  --theme-sidebar: #ffffff; --theme-topbar: rgba(255,255,255,.94);
+  --bg: #f1f5f9; --surface: #ffffff; --surface-muted: #f8fafc;
+  --border: #e2e8f0; --text: #0f172a; --text-soft: #334155; --text-muted: #64748b;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --theme-bg: #0B1120; --theme-card: #1E293B; --theme-text: #e2e8f0;
+  --theme-muted: #9aabc2; --theme-border: #334155; --theme-input: #111c2d;
+  --theme-sidebar: #111827; --theme-topbar: rgba(15,23,42,.96);
+  --bg: #0B1120; --surface: #1E293B; --surface-muted: #172337;
+  --border: #334155; --text: #e2e8f0; --text-soft: #cbd5e1; --text-muted: #9aabc2;
+  --sidebar-bg: #111827; --border-strong: #475569;
+}
+html, body { background: var(--theme-bg); color: var(--theme-text); }
+.sidebar, .card, .modal, .login-modal, .stat-card, .portal-header, .portal-card,
+.portal-note, .detail, .state-panel { background-color: var(--theme-card); color: var(--theme-text); border-color: var(--theme-border); }
+.sidebar { background-color: var(--theme-sidebar); }
+.topbar { background: var(--theme-topbar); color: var(--theme-text); }
+.data-table th { background: var(--theme-bg); color: var(--theme-muted); }
+.data-table td, .data-table th, .card__head, .toolbar { border-color: var(--theme-border); }
+.data-table td { color: var(--theme-text); }
+.input, .select, textarea { background: var(--theme-input); color: var(--theme-text); border-color: var(--theme-border); }
+.muted, .module-head__desc, .card__head p, .field-hint { color: var(--theme-muted); }
+[data-theme="dark"] .badge--neutral { color: #cbd5e1; background: #334155; }
+[data-theme="dark"] .badge--warning { color: #fde68a; background: #78350f; }
+[data-theme="dark"] .badge--success { color: #bbf7d0; background: #14532d; }
+[data-theme="dark"] .badge--danger { color: #fecaca; background: #7f1d1d; }
+[data-theme="dark"] .badge--info { color: #bfdbfe; background: #1e3a8a; }
+.sidebar__warehouse, .nav-item__text small, .topbar__eyebrow, .warehouse-badge, .module-head > div:first-child > .eyebrow,
+.module-head > div:first-child > h2, .module-head > div:first-child > .module-head__desc { display: none !important; }
+.module-head { margin-bottom: 12px; }
+.topbar__meta { margin-left: auto; }
+.topbar__actions [data-theme-toggle], .portal-header [data-theme-toggle] { min-width: 38px; font-size: 17px; }

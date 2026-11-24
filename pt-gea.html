@@ -12,6 +12,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/theme-gea.css">
+  <script src="js/theme.js?v=20261124"></script>
+  <link rel="stylesheet" href="css/styles.css?v=20261124">
   <script>
     /* Fallback aman sebelum file PNG logo diunggah. */
     window.wmsLogoSvgFallback = function (img, initials) {
@@ -149,6 +151,8 @@
         </div>
 
         <div class="topbar__actions">
+          <a class="btn btn--ghost btn--sm" href="dashboard-so.html" data-requires-role="SUPERVISOR" hidden>Monitoring SO</a>
+          <button type="button" class="btn btn--ghost btn--sm" data-theme-toggle aria-label="Ganti tema">🌙</button>
           <button type="button" class="btn btn--ghost btn--sm" id="switch-warehouse" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>

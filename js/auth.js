@@ -103,6 +103,8 @@
   function roleLabel(role) {
     var value = String(role || '').toUpperCase();
     if (value === 'SUPERVISOR') return 'Supervisor';
+    if (value === 'SPV') return 'SPV';
+    if (value === 'HOD') return 'Head of Department';
     if (value === 'STAFF') return 'Staff';
     return value || 'Pengguna';
   }
@@ -411,6 +413,7 @@
     getSession: function () { return session; },
     getRole: function () { return (session && session.user && session.user.role) || null; },
     isSupervisor: function () { return String((session && session.user && session.user.role) || '').toUpperCase() === 'SUPERVISOR'; },
+    isSoApprover: function () { var role = String((session && session.user && session.user.role) || '').toUpperCase(); return role === 'SUPERVISOR' || role === 'SPV' || role === 'HOD'; },
     canAccessWarehouse: function (code) {
       if (!session) return false;
       var access = String((session.user && session.user.aksesGudang) || '').toUpperCase();

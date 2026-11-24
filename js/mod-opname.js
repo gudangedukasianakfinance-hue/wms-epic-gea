@@ -481,23 +481,28 @@
   function openCreateOrder() {
     var body = '<form id="opname-create-form" novalidate>' +
       '<div class="field"><label for="opname-order-date">Tanggal Perintah SO</label><input class="input" id="opname-order-date" type="date" value="'+ui.esc(ui.todayIso())+'" required></div>' +
+      '<div class="field"><label for="opname-jenis-so">Jenis Stock Opname</label><select class="select" id="opname-jenis-so"><option value="MINGGUAN">SO Mingguan</option><option value="BULANAN">SO Bulanan</option></select></div>' +
       '<fieldset class="field"><legend>Cakupan Opname</legend><label class="radio-option"><input type="radio" name="opname-scope" value="ALL" checked> Seluruh Stok Gudang (Full Opname)</label><label class="radio-option"><input type="radio" name="opname-scope" value="SELECTED"> Pilih SKU Tertentu (Cycle Count)</label></fieldset>' +
+      '<button type="button" class="btn btn--secondary btn--sm" id="opname-select-all" hidden>Pilih Semua SKU Aktif</button>' +
       '<div id="opname-sku-picker" hidden><label for="opname-sku-search">Cari SKU / nama barang</label><input class="input" id="opname-sku-search" type="search" placeholder="Cari SKU atau nama barang"><div class="opname-sku-list" id="opname-sku-list"><div class="muted">Memuat stok gudang…</div></div><p class="field-hint" id="opname-selected-count">0 SKU dipilih</p></div>' +
       '<div class="form-alert" id="opname-create-error" hidden role="alert"></div></form>';
     ui.openModal({eyebrow:'Stock Opname',title:'Buat Perintah Stock Opname',size:'lg',body:body,
       footer:'<button type="button" class="btn btn--ghost" data-modal-close>Batal</button><button type="submit" class="btn btn--primary" form="opname-create-form" data-submit>Buat Perintah</button>',
       onMount:function(modal,close){
-        var picker=modal.querySelector('#opname-sku-picker'),list=modal.querySelector('#opname-sku-list'),search=modal.querySelector('#opname-sku-search'),selectedCount=modal.querySelector('#opname-selected-count');
+        var picker=modal.querySelector('#opname-sku-picker'),list=modal.querySelector('#opname-sku-list'),search=modal.querySelector('#opname-sku-search'),selectedCount=modal.querySelector('#opname-selected-count'),jenis=modal.querySelector('#opname-jenis-so'),selectAll=modal.querySelector('#opname-select-all');
         if (!picker || !list || !search || !selectedCount) return;
         var selected={};
         function draw(){var query=String(search.value||'').trim().toLowerCase();var stocks=state.stocks.filter(function(item){return !query||[item.Kode_SKU,item.Nama_Barang].join(' ').toLowerCase().indexOf(query)!==-1;});list.innerHTML=stocks.map(function(item){var sku=String(item.Kode_SKU||'');return '<label class="opname-sku-option"><input type="checkbox" data-sku="'+ui.esc(sku)+'" '+(selected[sku]?'checked':'')+'><span><strong>'+ui.esc(sku)+'</strong><small>'+ui.esc(item.Nama_Barang||'')+'</small></span><span class="muted">Stok '+ui.formatQty(item.Stok_Aktif)+'</span></label>';}).join('')||'<div class="muted">SKU tidak ditemukan.</div>';selectedCount.textContent=Object.keys(selected).length+' SKU dipilih';}
+        function syncType(){selectAll.hidden=jenis.value!=='BULANAN';}
+        jenis.addEventListener('change',syncType);syncType();
         modal.querySelectorAll('[name="opname-scope"]').forEach(function(radio){radio.addEventListener('change',function(){picker.hidden=radio.value!=='SELECTED'||!radio.checked;});});
+        selectAll.addEventListener('click',function(){modal.querySelector('[name="opname-scope"][value="SELECTED"]').checked=true;picker.hidden=false;state.stocks.forEach(function(item){selected[String(item.Kode_SKU||'')]=true;});draw();});
         search.addEventListener('input',draw);
         list.addEventListener('change',function(event){var box=event.target.closest('[data-sku]');if(!box)return;var sku=box.getAttribute('data-sku');if(box.checked)selected[sku]=true;else delete selected[sku];draw();});
         loadStockOptions().then(draw).catch(function(error){list.textContent=error.message||'Daftar stok gagal dimuat.';});
         var createForm = modal.querySelector('#opname-create-form');
         if (!createForm) return;
-        createForm.addEventListener('submit',async function(event){event.preventDefault();var errorBox=modal.querySelector('#opname-create-error'),submit=modal.querySelector('[data-submit]');errorBox.hidden=true;var scope=modal.querySelector('[name="opname-scope"]:checked').value;var skuList=Object.keys(selected);if(scope==='SELECTED'&&!skuList.length){errorBox.textContent='Pilih minimal satu SKU untuk Cycle Count.';errorBox.hidden=false;return;}ui.setBusy(submit,true,'Membuat perintah…');try{var result=await WMS.api.request('OPNAME_CREATE',{scope:scope,skuList:skuList,tanggalSo:modal.querySelector('#opname-order-date').value});close('saved');var message='Berhasil menerbitkan '+(result.createdCount||0)+' SKU ke AppSheet.';if(result.skippedCount)message+=' '+result.skippedCount+' SKU dilewati: '+(result.skippedSkus||[]).join(', ')+'.';ui.toast(message,result.skippedCount?'warning':'success','Perintah SO dibuat');await load({silent:false});}catch(error){if(WMS.api.isAuthError(error)){close('auth');return;}ui.setBusy(submit,false);errorBox.textContent=error.message||'Perintah SO gagal dibuat.';errorBox.hidden=false;}});
+        createForm.addEventListener('submit',async function(event){event.preventDefault();var errorBox=modal.querySelector('#opname-create-error'),submit=modal.querySelector('[data-submit]');errorBox.hidden=true;var scope=modal.querySelector('[name="opname-scope"]:checked').value;var skuList=Object.keys(selected);if(scope==='SELECTED'&&!skuList.length){errorBox.textContent='Pilih minimal satu SKU untuk Cycle Count.';errorBox.hidden=false;return;}ui.setBusy(submit,true,'Membuat perintah…');try{var result=await WMS.api.request('OPNAME_CREATE',{scope:scope,skuList:skuList,tanggalSo:modal.querySelector('#opname-order-date').value,jenisSo:jenis.value});close('saved');var message='Berhasil menerbitkan '+(result.createdCount||0)+' SKU ke AppSheet.';if(result.skippedCount)message+=' '+result.skippedCount+' SKU dilewati: '+(result.skippedSkus||[]).join(', ')+'.';ui.toast(message,result.skippedCount?'warning':'success','Perintah SO dibuat');await load({silent:false});}catch(error){if(WMS.api.isAuthError(error)){close('auth');return;}errorBox.textContent=error.message||'Perintah SO gagal dibuat.';errorBox.hidden=false;}finally{ui.setBusy(submit,false);}});
       }
     });
   }
@@ -616,7 +621,7 @@
   function mount(root) {
     panel = root;
 
-    if (!WMS.auth.isSupervisor()) {
+    if (!WMS.auth.isSoApprover()) {
       state.locked = true;
       root.innerHTML = lockedTemplate();
       return Promise.resolve();
