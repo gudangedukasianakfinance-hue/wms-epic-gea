@@ -793,7 +793,7 @@ body.auth-gate {
   border-radius: 999px;
   font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
   line-height: 1.6;
@@ -842,20 +842,50 @@ body.auth-gate {
   border-color: #e2e8f0;
 }
 
+/* --- Pills --- */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px solid var(--badge-accent);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--primary-light);
-  color: var(--primary-color);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   white-space: nowrap;
+  background-image: none !important;
 }
 
+/* --- Status pills — Light mode --- */
+.pill--outbound { border-color: #fdba74; color: #c2410c; background: #fff7ed; }
+.pill--inbound { border-color: #93c5fd; color: #1d4ed8; background: #eff6ff; }
+.pill--delivered { border-color: #6ee7b7; color: #047857; background: #ecfdf5; }
+.pill--pending { border-color: #fde047; color: #a16207; background: #fefce8; }
+.pill--rejected { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; }
+.pill--neutral { border-color: #cbd5e1; color: #334155; background: #f8fafc; }
+
+/* --- Status pills — Dark mode */
+[data-theme="dark"] .pill--outbound {
+  border-color: rgba(249, 115, 22, 0.38); color: #fdba74; background: rgba(249, 115, 22, 0.16);
+}
+[data-theme="dark"] .pill--inbound {
+  border-color: rgba(59, 130, 246, 0.38); color: #93c5fd; background: rgba(59, 130, 246, 0.16);
+}
+[data-theme="dark"] .pill--delivered {
+  border-color: rgba(16, 185, 129, 0.38); color: #6ee7b7; background: rgba(16, 185, 129, 0.16);
+}
+[data-theme="dark"] .pill--pending {
+  border-color: rgba(234, 179, 8, 0.38); color: #fde047; background: rgba(234, 179, 8, 0.16);
+}
+[data-theme="dark"] .pill--rejected {
+  border-color: rgba(239, 68, 68, 0.35); color: #fca5a5; background: rgba(239, 68, 68, 0.16);
+}
+[data-theme="dark"] .pill--neutral {
+  border-color: rgba(148, 163, 184, 0.35); color: #cbd5e1; background: rgba(148, 163, 184, 0.16);
+}
+
+/* --- Pill — Muted */
 .pill--muted {
   background: var(--surface-muted);
   border-color: var(--border);
