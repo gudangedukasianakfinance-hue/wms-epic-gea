@@ -256,10 +256,29 @@ WMS.laporan.tampilkanHeaderLaporan = function(periode) {
 
 /* Fungsi: Kelola Arsip & Backup Otomatis (modal) */
 WMS.laporan.bukaPengaturanArsip = function() {
-  // Cek role
+  // Cek role - fleksibel seperti dashboard-so.js
   var session = WMS.auth && WMS.auth.getSession();
-  if (!session || !(['SPV', 'SUPERVISOR', 'HOD'].includes(String(session.user.role || '').toUpperCase()))) {
-    alert('Hanya untuk role SPV, SUPERVISOR, atau HOD.');
+  if (!session) {
+    alert('Harap login terlebih dahulu.');
+    return;
+  }
+  
+  // Ekstrak role dari berbagai possible properties
+  var rawRole = '';
+  if (session && session.user) {
+    rawRole = String(session.user.role || session.user.jabatan || '');
+  } else if (sessionStorage) {
+    try {
+      var stored = JSON.parse(sessionStorage.getItem('wms.session.v1') || 'null');
+      rawRole = stored && stored.user && (stored.user.role || stored.user.jabatan) || '';
+    } catch (e) {}
+  }
+  var userRole = rawRole.toString().trim().toUpperCase();
+  
+  // Izinkan semua variasi role supervisor & manajemen
+  var rolesDiterima = ['SPV', 'SUPERVISOR', 'HOD', 'ADMIN', 'OWNER'];
+  if (!rolesDiterima.includes(userRole)) {
+    alert('Hanya untuk role SPV, SUPERVISOR, HOD, ADMIN, atau OWNER.');
     return;
   }
   
@@ -281,6 +300,23 @@ WMS.laporan.tutupPengaturanArsip = function() {
     modal.classList.remove('is-open');
     modal.setAttribute('aria-hidden', 'true');
   }
+};
+
+/* Fungsi: Inisialisasi laporan (di-panggil setelah DOMContentLoaded) */
+/* Pastikan urutan load: config.js → auth.js → laporan.js sudah benar */
+/* Fungsi ini memastikan WMS.auth fully loaded sebelum laporan dimulai */
+WMS.laporan.init = function() {
+  // Validasi sesi cepat (jika belum dicek di HTML)
+  var session = WMS.auth && WMS.auth.getSession();
+  if (session && session.user) {
+    // Normalisasi role fleksibel
+    var rawRole = String(session.user.role || session.user.jabatan || '');
+    var userRole = rawRole.toString().trim().toUpperCase();
+    // Catat role di state untuk digunakan oleh fungsi lain
+    state.userRole = userRole;
+  }
+  // Log init completion
+  log('LAPORAN: init selesai, WMS.auth siap');
 };
 
 /* ==========================================================================
