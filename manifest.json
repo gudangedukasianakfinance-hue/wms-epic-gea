@@ -1,0 +1,25 @@
+{
+  "name": "WMS Terpadu — Anemone",
+  "short_name": "WMS Anemone",
+  "description": "Portal WMS Terpadu CV EPIC & PT GEA — Inbound, Outbound, Inventory, Stock Opname, dan Pengajuan Order.",
+  "lang": "id",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "assets/icon-anemone-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-anemone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
