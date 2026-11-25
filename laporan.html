@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="WMS Terpadu - Pusat Laporan PDF Resmi CV EPIC & PT GEA">
+  <title>Gudang CV EPIC · Pusat Laporan</title>
+  <link rel="icon" type="image/png" href="assets/favicon-anemone.png?v=20261125-audit">
+  <link rel="apple-touch-icon" href="assets/icon-anemone-192.png?v=20261125-audit">
+  <link rel="manifest" href="manifest.json?v=20261125-audit">
+  <title>Gudang CV EPIC · Pusat Laporan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css?v=20261125-audit">
+  <link rel="stylesheet" href="css/styles.css?v=20261125-audit">
+  <link rel="stylesheet" href="css/theme-epic.css?v=20261125-audit">
+  <link rel="stylesheet" href="css/theme-gea.css?v=20261125-audit">
+  <script src="js/theme.js?v=20261125-audit"></script>
+  <script src="js/config.js?v=20261125-audit"></script>
+  <script src="js/core-router.js?v=20261125-audit"></script>
+  <script src="js/auth.js?v=20261125-audit"></script>
+  <script src="js/laporan.js?v=20261125-audit"></script>
+  <style>
+    /* ==========================================================================
+       Halaman Lapar/Pusat Laporan — Overrides & Print Styles
+       ========================================================================== */
+
+    /* --- Page shell --- */
+    .laporan-shell { min-height: 100vh; }
+
+    /* --- Control Panel --- */
+    .laporan-ctrl { 
+      background: var(--surface); 
+      border: 1px solid var(--border); 
+      border-radius: 12px; 
+      padding: 20px; 
+      margin-bottom: 24px;
+      font-family: var(--font-sans);
+    }
+    .laporan-ctrl__section { 
+      margin-bottom: 20px; 
+      padding-bottom: 20px; 
+      border-bottom: 1px solid var(--border-muted, #e2e8f0); 
+    }
+    .laporan-ctrl__section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+    .laporan-ctrl__title { 
+      font-size: 12px; 
+      font-weight: 700; 
+      letter-spacing: 0.08em; 
+      text-transform: uppercase; 
+      color: var(--text-muted); 
+      margin-bottom: 12px; 
+    }
+    .laporan-ctrl__group { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+    /* Filter groups */
+    .laporan-filter { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 6px; 
+    }
+    .laporan-filter__label { 
+      font-size: 10px; 
+      font-weight: 700; 
+      letter-spacing: 0.08em; 
+      text-transform: uppercase; 
+      color: var(--text-muted); 
+    }
+    .laporan-filter__row { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .laporan-filter__row .laporan-filter__label { font-size: 11px; margin-bottom: 4px; display: block; }
+    .laporan-filter__input { 
+      min-height: 40px; 
+      padding: 8px 12px; 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+      font-size: 13px; 
+      background: var(--surface); 
+      color: var(--theme-text);
+    }
+    .laporan-filter__input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-light); }
+    .laporan-filter__btn { 
+      min-height: 40px; 
+      padding: 0 16px; 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+      background: transparent; 
+      color: var(--theme-text); 
+      font-size: 13px; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.15s ease; 
+    }
+    .laporan-filter__btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+    .laporan-filter__btn--primary { background: var(--primary-color); color: #ffffff; border-color: var(--primary-color); }
+    .laporan-filter__btn--primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+    .laporan-filter__btn--ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
+    .laporan-filter__btn--ghost:hover { background: var(--surface-muted); border-color: var(--border-strong); color: var(--theme-text); }
+
+    /* --- Report Type Tabs --- */
+    .laporan-tabs { 
+      display: flex; 
+      gap: 6px; 
+      margin-bottom: 16px; 
+      background: var(--surface-muted); 
+      border-radius: 10px; 
+      padding: 4px; 
+    }
+    .laporan-tab { 
+      flex: 1; 
+      padding: 10px 6px; 
+      border-radius: 8px 8px 0 0; 
+      font-size: 11px; 
+      font-weight: 700; 
+      letter-spacing: 0.04em; 
+      text-transform: uppercase; 
+      color: var(--text-muted); 
+      cursor: pointer; 
+      transition: all 0.15s ease; 
+      border: 1px solid transparent; 
+    }
+    .laporan-tab.is-active { 
+      background: var(--surface); 
+      color: var(--primary-color); 
+      border-color: var(--primary-color) var(--primary-color) var(--surface); 
+    }
+    .laporan-tab:not(.is-active):hover { color: var(--text); }
+
+    /* --- Preview Area --- */
+    .laporan-preview { 
+      background: var(--surface); 
+      border: 1px solid var(--border); 
+      border-radius: 12px; 
+      padding: 24px; 
+      min-height: 400px; 
+    }
+    .laporan-preview__header { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+    .laporan-preview__kpi { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+      gap: 12px; 
+      margin-bottom: 24px; 
+    }
+    .laporan-preview__kpi .kpi-card { 
+      background: var(--surface-muted); 
+      border: 1px solid var(--border); 
+      border-radius: 10px; 
+      padding: 16px; 
+      text-align: center; 
+    }
+    .laporan-preview__kpi .kpi-value { 
+      font-size: 24px; 
+      font-weight: 700; 
+      letter-spacing: -0.02em; 
+      color: var(--primary-color); 
+      margin-top: 6px; 
+    }
+    .laporan-preview__kpi .kpi-label { 
+      font-size: 11px; 
+      font-weight: 600; 
+      letter-spacing: 0.06em; 
+      text-transform: uppercase; 
+      color: var(--text-muted); 
+      margin-top: 4px; 
+    }
+    .laporan-preview__table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      font-size: 12px; 
+    }
+    .laporan-preview__table th { 
+      background: var(--surface-muted); 
+      border: 1px solid var(--border); 
+      padding: 10px 12px; 
+      font-size: 10px; 
+      font-weight: 700; 
+      letter-spacing: 0.08em; 
+      text-transform: uppercase; 
+      color: var(--text-muted); 
+      text-align: left; 
+      white-space: nowrap; 
+    }
+    .laporan-preview__table td { 
+      border: 1px solid var(--border); 
+      padding: 8px 12px; 
+    }
+    .laporan-preview__table tbody tr { page-break-inside: avoid; }
+    .laporan-preview__table tbody tr:hover { background: var(--surface-muted); }
+
+    /* --- Print-Specific Styles --- */
+    @media print {
+      .laporan-page { 
+        -webkit-print-color-adjust: exact !important; 
+        print-color-adjust: exact !important; 
+      }
+      .no-print { display: none !important; }
+      .laporan-ctrl, .laporan-tabs, .laporan-filter, .laporan-preview__kpi { display: none !important; }
+      
+      .laporan-preview { 
+        border: 0 !important; 
+        box-shadow: none !important; 
+        background: #ffffff !important; 
+        padding: 0 !important; 
+      }
+      
+      .laporan-preview__header { 
+        text-align: center; 
+        margin-bottom: 24px; 
+        padding-bottom: 24px; 
+        border-bottom: 2px solid #000000 !important; 
+      }
+      
+      .laporan-preview__title { 
+        font-size: 20px; 
+        font-weight: 700; 
+        letter-spacing: -0.02em; 
+        color: #000000; 
+        margin-bottom: 8px; 
+      }
+      
+      .laporan-preview__periode { 
+        font-size: 13px; 
+        color: #333333; 
+      }
+      
+      .laporan-preview__kpi { display: none !important; }
+      
+      .laporan-preview__table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        font-size: 11px; 
+        margin-top: 20px; 
+      }
+      .laporan-preview__table thead { display: table-header-group; }
+      .laporan-preview__table th { 
+        background: #000000 !important; 
+        color: #ffffff !important; 
+        border: 1px solid #000000 !important; 
+        padding: 8px 6px !important; 
+        font-size: 9px !important; 
+        font-weight: 700 !important; 
+        letter-spacing: 0.06em !important; 
+        text-transform: uppercase !important; 
+      }
+      .laporan-preview__table td { 
+        border: 1px solid #000000 !important; 
+        padding: 6px 4px !important; 
+        color: #000000 !important; 
+        font-size: 10px !important; 
+      }
+      .laporan-preview__table tbody tr { page-break-inside: avoid; }
+      
+      /* TTD Block in print */
+      .laporan-ttd { 
+        margin-top: 40px; 
+        padding-top: 20px; 
+        border-top: 1px solid #000000; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: flex-start; 
+        flex-wrap: wrap; 
+        gap: 20px; 
+      }
+      .laporan-ttd__column { 
+        flex: 1; 
+        min-width: 200px; 
+      }
+      .laporan-ttd__label { 
+        font-size: 11px; 
+        font-weight: 700; 
+        letter-spacing: 0.06em; 
+        text-transform: uppercase; 
+        color: #000000; 
+        margin-bottom: 8px; 
+        display: block; 
+      }
+      .laporan-ttd__area { 
+        border: 1px dashed #cccccc; 
+        border-radius: 6px; 
+        min-height: 40px; 
+        margin-bottom: 6px; 
+        position: relative; 
+      }
+      .laporan-ttd__area--has-image { 
+        border: 1px solid #000000; 
+      }
+      .laporan-ttd__area img { 
+        width: 100%; 
+        height: 100%; 
+        object-fit: contain; 
+        border-radius: 5px; 
+      }
+      .laporan-ttd__name { 
+        font-size: 11px; 
+        font-weight: 600; 
+        letter-spacing: 0.02em; 
+        color: #000000; 
+        text-decoration: underline; 
+      }
+      
+      /* Force black-on-white for all elements */
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body, .laporan-preview { background: #ffffff !important; color: #000000 !important; }
+    }
+
+    /* ==========================================================================
+       Responsive
+       ========================================================================== */
+    @media (max-width: 720px) {
+      .laporan-ctrl__group { grid-template-columns: 1fr; }
+      .laporan-filter__row { grid-template-columns: 110px 1fr auto; }
+    }
+  </style>
+</head>
+<body data-theme="light" class="laporan-shell">
+  <!-- Sesi cek -->  
+  <div id="laporan-session-alert" class="sr-only" aria-live="polite">
+    Perlu login untuk mengakses halaman ini.
+  </div>
+
+  <div class="app-shell">
+    <div class="app-main">
+      <header class="topbar" style="padding: 16px 24px; background: var(--theme-topbar); backdrop-filter: blur(14px); border-bottom: 1px solid var(--border);">
+        <div class="topbar__context">
+          <h1 class="topbar__title" id="laporan-page-title">Pusat Laporan PDF</h1>
+        </div>
+        <div class="topbar__meta" style="gap: 12px;">
+          <span class="api-status" id="laporan-api-status" data-api-status="idle" title="Status koneksi API">
+            <span class="api-status__dot" aria-hidden="true"></span>
+            <span class="api-status__label">Menunggu login</span>
+          </span>
+        </div>
+      </header>
+
+      <main class="content" style="padding: 24px;">
+        <!-- Control Panel -->
+        <section class="laporan-ctrl" id="laporan-ctrl">
+          <!-- Entitas Section -->
+          <div class="laporan-ctrl__section">
+            <h3 class="laporan-ctrl__title">Entitas Gudang</h3>
+            <div class="laporan-ctrl__group">
+              <div class="laporan-filter__row">
+                <span class="laporan-filter__label">Entitas</span>
+                <select class="laporan-filter__input" id="laporan-entitas" onchange="WMS.laporan.loadEntityData()">
+                  <option value="EPIC">CV EPIC</option>
+                  <option value="GEA">PT GEA</option>
+                  <option selected>Auto (dari sesi)</option>
+                </select>
+              </div>
+              <input type="hidden" id="laporan-entity-code" value="">
+            </div>
+          </div>
+
+          <!-- Jenis Laporan Section -->
+          <div class="laporan-ctrl__section">
+            <h3 class="laporan-ctrl__title">Jenis Laporan</h3>
+            <div class="laporan-tabs" id="laporan-tabs">
+              <button class="laporan-tab is-active" data-type="rekap-stok" onclick="WMS.laporan.switchType(this)">Rekapitulasi Stok Akhir</button>
+              <button class="laporan-tab" data-type="mutasi" onclick="WMS.laporan.switchType(this)">Mutasi Barang (Kartu Stok)</button>
+              <button class="laporan-tab" data-type="outbound" onclick="WMS.laporan.switchType(this)">Outbound & Kinerja OTD</button>
+              <button class="laporan-tab" data-type="inbound" onclick="WMS.laporan.switchType(this)">Penerimaan Barang Masuk (Inbound)</button>
+              <button class="laporan-tab" data-type="baso" onclick="WMS.laporan.switchType(this)">BASO (Selisih Stock Opname)</button>
+            </div>
+          </div>
+
+          <!-- Filter Tanggal -->
+          <div class="laporan-ctrl__section">
+            <h3 class="laporan-ctrl__title">Rentang Tanggal</h3>
+            <div class="laporan-filter__row">
+              <span class="laporan-filter__label">Dari</span>
+              <input class="laporan-filter__input" type="date" id="laporan-tgl-dari" value="">
+              <span class="laporan-filter__label">Sampai</span>
+              <input class="laporan-filter__input" type="date" id="laporan-tgl-sampai" value="">
+            </div>
+            <div class="laporan-filter__row">
+              <span class="laporan-filter__label">&nbsp;</span>
+              <button class="laporan-filter__btn--primary" onclick="WMS.laporan.tampilkanPratinjau()">
+                <span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>
+                Tampilkan Pratinjau
+              </button>
+            </div>
+          </div>
+
+          <!-- Export & TTD -->
+          <div class="laporan-ctrl__section no-print" style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px;">
+            <button class="laporan-filter__btn--ghost" style="margin-right: 8px;" onclick="window.print()">
+              <span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>
+              Export / Cetak PDF
+            </button>
+            <button class="laporan-filter__btn--ghost" onclick="WMS.laporan.bukaPengaturanTTD()">
+              <span style="font-size: 11px;">Pengaturan TTD</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Preview Area -->
+        <section class="laporan-preview" id="laporan-preview">
+          <div class="laporan-preview__header" id="laporan-preview-header">
+            <!-- Akan diisi oleh JS -->
+          </div>
+          
+          <div class="laporan-preview__kpi" id="laporan-preview-kpi">
+            <!-- Kotak KPI akan diisi oleh JS -->
+          </div>
+          
+          <div class="laporan-preview__table" id="laporan-preview-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Loading...</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="laporan-preview__table__empty" colspan="10">Silakan pilih entitas, jenis laporan, dan rentang tanggal untuk memuat data.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal TTD -->
+  <div id="laporan-ttd-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal login-modal" role="dialog" aria-modal="true" aria-labelledby="ttd-modal-title">
+      <div class="modal__header">
+        <h2 id="ttd-modal-title">Pengaturan TTD</h2>
+        <button type="button" class="icon-btn modal__close" data-ttd-close aria-label="Tutup"></button>
+      </div>
+      <div class="modal__body" style="max-height: 400px; overflow-y: auto;">
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; color: var(--text-soft);">Pengaju (SPV)</h3>
+          <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px; margin-bottom: 12px;">
+            <span>Nama</span>
+            <input type="text" class="laporan-filter__input" id="ttd-pengaju-nama" placeholder="Nama SPV">
+            <span>Jabatan</span>
+            <input type="text" class="laporan-filter__input" id="ttd-pengaju-jabatan" value="Warehouse Supervisor" readonly>
+          </div>
+          <div style="margin-bottom: 12px;">
+            <span>Kota/Tanggal</span>
+            <input type="text" class="laporan-filter__input" id="ttd-pengaju-kotatgl" value="Denpasar, 25 November 2026">
+          </div>
+          <div>
+            <span>Upload TTD PNG (opsional)</span>
+            <input type="file" class="laporan-filter__input" id="ttd-pengaju-gambar" accept="image/png, image/jpeg">
+            <small style="font-size: 10px; color: var(--text-faint);">Maksimal 2MB, tampil di pojok kiri bawah.</small>
+            <button type="button" class="laporan-filter__btn--ghost" style="margin-top: 4px; padding: 4px 8px; font-size: 11px;" onclick="WMS.laporan.hapusTTDPengaju()">Hapus TTD</button>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; color: var(--text-soft);">Menyetujui (HOD)</h3>
+          <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px; margin-bottom: 12px;">
+            <span>Nama</span>
+            <input type="text" class="laporan-filter__input" id="ttd-hod-nama" placeholder="Nama HOD">
+            <span>Jabatan</span>
+            <input type="text" class="laporan-filter__input" id="ttd-hod-jabatan" value="Head of Department" readonly>
+          </div>
+          <div style="margin-bottom: 12px;">
+            <span>Kota/Tanggal</span>
+            <input type="text" class="laporan-filter__input" id="ttd-hod-kotatgl" value="Denpasar, 25 November 2026">
+          </div>
+          <div>
+            <span>Upload TTD PNG (opsional)</span>
+            <input type="file" class="laporan-filter__input" id="ttd-hod-gambar" accept="image/png, image/jpeg">
+            <small style="font-size: 10px; color: var(--text-faint);">Maksimal 2MB, tampil di pojok kanan bawah.</small>
+            <button type="button" class="laporan-filter__btn--ghost" style="margin-top: 4px; padding: 4px 8px; font-size: 11px;" onclick="WMS.laporan.hapusTTDHod()">Hapus TTD</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer" style="justify-content: flex-end; gap: 12px;">
+        <button type="button" class="btn btn--ghost" data-ttd-close>Batal</button>
+        <button type="button" class="btn btn--primary" onclick="WMS.laporan.simpanTTD()">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Inisialisasi WMS.laporan jika belum ada
+    WMS = WMS || {};
+    WMS.laporan = WMS.laporan || {};
+    
+    // Pastikan API tersedia
+    if (typeof WMS.api !== 'undefined' && WMS.api.request) {
+      // Sudah terintegrasi
+    }
+    
+    // Cek sesi saat load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Cek status login dari auth.js
+      var session = WMS.auth && WMS.auth.getSession();
+      var userRole = session && session.user ? String(session.user.role || '').toUpperCase() : '';
+      
+      // Role yang boleh akses: SPV, SUPERVISOR, HOD
+      var rolesTerlarang = ['STAFF'];
+      var bolehAkses = userRole === 'SPV' || userRole === 'SUPERVISOR' || userRole === 'HOD';
+      
+      if (!bolehAkses) {
+        // Redirect ke index.html
+        setTimeout(function() {
+          window.location.href = 'index.html';
+        }, 1500);
+        document.getElementById('laporan-session-alert').className = '';
+        document.getElementById('laporan-session-alert').removeAttribute('class'); // sr-only removed
+        // Show message
+        alert('Halaman ini memerlukan akses SPV, SUPERVISOR, atau HOD. Anda akan dialihkan ke halaman utama.');
+      } else {
+        // Muat data entitas dan inisialisasi
+        WMS.laporan.init();
+      }
+    });
+  </script>
+</body>
+</html>
