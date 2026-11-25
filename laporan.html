@@ -351,6 +351,19 @@
             </div>
           </div>
 
+          <!-- Periode Database Section -->
+          <div class="laporan-ctrl__section">
+            <h3 class="laporan-ctrl__title">Periode Database</h3>
+            <div class="laporan-filter__row">
+              <span class="laporan-filter__label">Pilih Periode</span>
+              <select class="laporan-filter__input" id="laporan-periode" onchange="WMS.laporan.tampilkanPratinjau()">
+                <option value="active">Bulan Berjalan (Aktif)</option>
+                <!-- Opsi akan diisi oleh JavaScript via ARCHIVE_LIST endpoint -->
+              </select>
+            </div>
+            <small style="font-size: 10px; color: var(--text-faint);">Memuat daftar arsip dari backend...</small>
+          </div>
+
           <!-- Jenis Laporan Section -->
           <div class="laporan-ctrl__section">
             <h3 class="laporan-ctrl__title">Jenis Laporan</h3>
