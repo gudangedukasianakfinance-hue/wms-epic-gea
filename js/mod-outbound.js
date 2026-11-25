@@ -20,6 +20,7 @@
   var outboundSummary = null;
   var leadTimeMap = null;
   var leadTimeItems = [];
+  var destinationItems = [];
 
   var DEFAULT_HEADER_ACTIONS = '<button type="button" class="btn btn--secondary btn--sm" data-action="lead-time">Atur Lead Time Outlet</button>';
 
@@ -195,6 +196,43 @@
         leadTimeMap = leadTimeMap || {};
         return leadTimeMap;
       });
+  }
+
+  /**
+   * Referensi tujuan Outbound gabungan Master_Outlet + HR_Watchlist_Cabang
+   * aktif + histori Outbound_Log. Dipakai datalist pada form picking.
+   *
+   * @param {boolean} [force] True untuk memuat ulang dari server.
+   * @return {Promise<Array<Object>>} Daftar tujuan.
+   */
+  function loadDestinationItems(force) {
+    if (destinationItems.length && !force) return Promise.resolve(destinationItems);
+
+    return WMS.api.request('OUTBOUND_DESTINATION_LIST')
+      .then(function (data) {
+        destinationItems = data && Array.isArray(data.items) ? data.items : [];
+        return destinationItems;
+      })
+      .catch(function (error) {
+        if (WMS.api.isAuthError(error)) throw error;
+        destinationItems = destinationItems || [];
+        return destinationItems;
+      });
+  }
+
+  function renderDestinationOptions(datalist) {
+    if (!datalist) return;
+
+    var seen = {};
+    datalist.innerHTML = destinationItems.map(function (item) {
+      var name = String(item && item.Nama_Outlet || '').trim();
+      var key = name.toUpperCase();
+
+      if (!name || seen[key]) return '';
+      seen[key] = true;
+
+      return '<option value="' + ui.esc(name) + '"></option>';
+    }).join('');
   }
 
   function leadTimeInfo(name) {
@@ -751,7 +789,9 @@
           '</div>' +
           '<div class="field">' +
             '<label for="picking-tujuan">Tujuan Customer <span class="req">*</span></label>' +
-            '<input class="input" id="picking-tujuan" name="tujuanCustomer" type="text" placeholder="Nama toko / customer" maxlength="120" required autocomplete="off">' +
+            '<input class="input" id="picking-tujuan" name="tujuanCustomer" type="text" list="picking-destination-list" placeholder="Pilih atau ketik nama toko / customer" maxlength="150" required autocomplete="off">' +
+            '<datalist id="picking-destination-list" data-destination-datalist></datalist>' +
+            '<p class="field-hint">Pilih nama resmi dari daftar agar tidak terjadi duplikasi outlet.</p>' +
           '</div>' +
           '<div class="field">' +
             '<label for="picking-sku">Kode SKU <span class="req">*</span></label>' +
@@ -813,6 +853,11 @@
 
         skuInput.addEventListener('input', updateHint);
         ensureStockMap().then(updateHint).catch(function () { /* diamkan */ });
+
+        var destinationList = modal.querySelector('#picking-destination-list');
+        loadDestinationItems().then(function () {
+          renderDestinationOptions(destinationList);
+        }).catch(function () { /* daftar tetap opsional */ });
 
         form.addEventListener('submit', async function (event) {
           event.preventDefault();

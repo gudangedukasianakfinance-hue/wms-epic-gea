@@ -868,6 +868,36 @@
   }
 
   /**
+   * Menu "Monitoring HR" hanya untuk SPV (SUPERVISOR) dan HOD.
+   * STAFF tidak boleh melihat tautan ini sama sekali.
+   *
+   * @param {string} [role] Role opsional; default dari sesi aktif.
+   * @return {boolean} True jika role berhak membuka dashboard HR.
+   */
+  function canMonitorHr(role) {
+    var value = String(
+      role || (WMS.auth && typeof WMS.auth.getRole === 'function' ? WMS.auth.getRole() : '') || ''
+    ).toUpperCase();
+
+    return value === 'SPV' || value === 'HOD' || value === 'SUPERVISOR';
+  }
+
+  /**
+   * Menyinkronkan visibilitas seluruh tautan [data-hr-nav] dengan role sesi.
+   * Dipanggil saat boot, sesi dibuat, dan logout.
+   */
+  function syncHrNav() {
+    var authenticated = !!(WMS.auth && typeof WMS.auth.getSession === 'function' && WMS.auth.getSession());
+    var allowed = authenticated && canMonitorHr();
+
+    document.querySelectorAll('[data-hr-nav]').forEach(function (element) {
+      element.hidden = !allowed;
+      element.setAttribute('aria-hidden', allowed ? 'false' : 'true');
+      element.style.display = allowed ? '' : 'none';
+    });
+  }
+
+  /**
    * Modul pertama yang terdaftar dan boleh diakses sesuai urutan shell.
    * Dipakai ketika hash tidak valid / modul tidak tersedia.
    *
@@ -1037,6 +1067,7 @@
     var detail = event && event.detail ? event.detail : {};
     state.session = detail.session || (WMS.auth && WMS.auth.getSession());
     WMS.session = state.session;
+    syncHrNav();
 
     loadMasterData();
 
@@ -1056,6 +1087,7 @@
     resetModules();
     setPageTitle(null);
     setActiveNav('');
+    syncHrNav();
   }
 
   /* ------------------------------------------------------------------------
@@ -1152,6 +1184,7 @@
     bindShell();
     loadMasterCacheIntoState();
     setPageTitle(null);
+    syncHrNav();
 
     if (!WMS.warehouseCode || !WMS.entity) {
       document.body.classList.remove('auth-gate');
@@ -1172,7 +1205,9 @@
     activate: activate,
     refreshActive: refreshActive,
     getActive: function () { return state.activeModule; },
-    getModules: function () { return state.modules; }
+    getModules: function () { return state.modules; },
+    canMonitorHr: canMonitorHr,
+    syncHrNav: syncHrNav
   };
 
   if (document.readyState === 'loading') {

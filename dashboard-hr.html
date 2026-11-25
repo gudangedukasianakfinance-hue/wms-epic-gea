@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0F172A">
+  <meta name="description" content="Monitoring Pengiriman Cabang Baru — HR. Pantau pengiriman outlet baru dari CV EPIC dan PT GEA.">
+  <title>Monitoring Pengiriman Cabang Baru — HR</title>
+  <link rel="icon" type="image/png" href="assets/favicon-anemone.png?v=20261125-anemone">
+  <link rel="apple-touch-icon" href="assets/icon-anemone-192.png?v=20261125-anemone">
+  <link rel="manifest" href="manifest.json?v=20261125-anemone">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css?v=20261125-hr">
+  <link rel="stylesheet" href="css/styles.css?v=20261125-hr">
+  <script src="js/theme.js?v=20261125-hr"></script>
+</head>
+<body class="hr-page" data-warehouse="ALL">
+  <noscript>
+    <p style="margin:0;padding:14px;background:#fef3c7;color:#92400e;text-align:center;">
+      JavaScript wajib diaktifkan untuk menggunakan dashboard HR.
+    </p>
+  </noscript>
+
+  <header class="hr-header">
+    <div class="hr-brand">
+      <span class="hr-logo">
+        <img src="assets/logo-anemone.png" alt="Logo My Anemone" width="34" height="38">
+      </span>
+      <div class="hr-brand__text">
+        <p class="hr-eyebrow">Human Resources · My Anemone</p>
+        <h1>Monitoring Pengiriman Cabang Baru</h1>
+      </div>
+    </div>
+
+    <div class="hr-header__actions">
+      <span id="hr-load-state" class="hr-load-state muted" role="status">Memuat…</span>
+      <button type="button" class="btn btn--ghost btn--sm" data-theme-toggle aria-label="Ganti tema">🌙</button>
+      <button type="button" class="btn btn--secondary btn--sm" data-hr-reload>Muat Ulang</button>
+      <button type="button" class="btn btn--primary btn--sm" id="hr-manage-open">Kelola Cabang Baru</button>
+      <a class="btn btn--ghost btn--sm" id="hr-back" href="index.html" hidden>Kembali ke Operasional</a>
+    </div>
+  </header>
+
+  <main class="hr-main">
+    <section class="hr-filters" aria-label="Filter dashboard HR">
+      <div class="hr-filter-field">
+        <label for="hr-filter-branch">Nama Cabang Baru</label>
+        <input class="input" id="hr-filter-branch" type="search" placeholder="Cari nama cabang…" autocomplete="off">
+      </div>
+      <div class="hr-filter-field">
+        <label for="hr-filter-entity">Entitas Gudang</label>
+        <select class="select" id="hr-filter-entity">
+          <option value="">Semua Entitas</option>
+          <option value="EPIC">CV EPIC</option>
+          <option value="GEA">PT GEA</option>
+        </select>
+      </div>
+      <div class="hr-filter-field">
+        <label for="hr-filter-status">Status Pengiriman</label>
+        <select class="select" id="hr-filter-status">
+          <option value="">Semua Status</option>
+          <option value="DIPROSES">Diproses Gudang</option>
+          <option value="TERKIRIM">Terkirim</option>
+        </select>
+      </div>
+      <div class="hr-filter-field hr-filter-field--action">
+        <span class="hr-filter-field__label">Perbarui Data</span>
+        <button type="button" class="btn btn--secondary btn--block" data-hr-reload>Muat Ulang</button>
+      </div>
+    </section>
+
+    <section class="hr-kpis" aria-label="Ringkasan KPI">
+      <article class="hr-kpi hr-kpi--brand">
+        <span>Cabang Baru Dipantau</span>
+        <strong id="hr-kpi-branches">—</strong>
+        <small>Outlet berstatus AKTIF di watchlist HR</small>
+      </article>
+      <article class="hr-kpi">
+        <span>Total Pengiriman (DO)</span>
+        <strong id="hr-kpi-total-do">—</strong>
+        <small>Gabungan CV EPIC &amp; PT GEA</small>
+      </article>
+      <article class="hr-kpi">
+        <span>Progress Terkirim</span>
+        <strong id="hr-kpi-progress">—</strong>
+        <small>Persentase DO berstatus terkirim</small>
+      </article>
+      <article class="hr-kpi">
+        <span>Menunggu Kirim</span>
+        <strong id="hr-kpi-waiting">—</strong>
+        <small>DO yang masih diproses gudang</small>
+      </article>
+    </section>
+
+    <section class="hr-section" aria-labelledby="hr-branch-heading">
+      <div class="hr-section__head">
+        <div>
+          <h2 id="hr-branch-heading">Progress per Cabang Baru</h2>
+          <p class="muted">Target opening dan kontribusi pengiriman dari masing-masing gudang.</p>
+        </div>
+        <span class="pill pill--muted" id="hr-branch-count">0 cabang</span>
+      </div>
+      <div class="hr-branch-grid" id="hr-branch-grid">
+        <div class="hr-empty">Memuat data cabang…</div>
+      </div>
+    </section>
+
+    <section class="hr-panel" aria-labelledby="hr-shipment-heading">
+      <div class="hr-section__head">
+        <div>
+          <h2 id="hr-shipment-heading">Rincian Pengiriman</h2>
+          <p class="muted">Klik baris untuk melihat rincian SKU dan Surat Jalan PDF.</p>
+        </div>
+        <span class="pill pill--muted" id="hr-shipment-count">0 DO</span>
+      </div>
+      <div class="hr-table-wrap">
+        <table class="data-table hr-table">
+          <thead>
+            <tr>
+              <th>No DO</th>
+              <th>Cabang Baru</th>
+              <th>Entitas</th>
+              <th>Tanggal Order</th>
+              <th class="num">SKU</th>
+              <th class="num">Qty</th>
+              <th>Target Tiba</th>
+              <th>Status</th>
+              <th class="actions-cell">Surat Jalan</th>
+            </tr>
+          </thead>
+          <tbody id="hr-shipment-body">
+            <tr><td colspan="9" class="hr-empty">Memuat pengiriman…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Kelola Cabang Baru -->
+  <div class="hr-modal" id="hr-manage-modal" hidden>
+    <div class="hr-modal__backdrop" data-hr-manage-close></div>
+    <section class="hr-modal__card hr-modal__card--lg" role="dialog" aria-modal="true" aria-labelledby="hr-manage-title">
+      <header class="hr-modal__head">
+        <div>
+          <p class="hr-eyebrow">Watchlist HR</p>
+          <h2 id="hr-manage-title">Kelola Cabang Baru</h2>
+          <p class="muted">Aktifkan outlet terdaftar atau daftarkan nama outlet baru dengan pencocokan cerdas.</p>
+        </div>
+        <button type="button" class="btn btn--ghost btn--sm" data-hr-manage-close aria-label="Tutup modal">Tutup</button>
+      </header>
+
+      <div class="hr-modal__body">
+        <section class="hr-manage-block" aria-labelledby="hr-manage-list-title">
+          <div class="hr-manage-block__head">
+            <div>
+              <h3 id="hr-manage-list-title">1. Pilih dari Daftar Outlet Terdaftar</h3>
+              <p class="muted">Gabungan Master Outlet, watchlist HR, dan histori Outbound CV EPIC &amp; PT GEA.</p>
+            </div>
+            <span class="pill pill--muted" id="hr-outlet-count">0 outlet</span>
+          </div>
+          <div class="hr-manage-search">
+            <input class="input" id="hr-outlet-search" type="search" placeholder="Cari nama outlet terdaftar…" autocomplete="off">
+          </div>
+          <div class="hr-outlet-list" id="hr-outlet-list">
+            <div class="hr-empty">Memuat daftar outlet…</div>
+          </div>
+        </section>
+
+        <section class="hr-manage-block" aria-labelledby="hr-manage-new-title">
+          <div class="hr-manage-block__head">
+            <div>
+              <h3 id="hr-manage-new-title">2. Input Nama Outlet Baru</h3>
+              <p class="muted">Pencocokan real-time mencegah duplikasi nama outlet.</p>
+            </div>
+          </div>
+          <form id="hr-new-form" class="hr-new-form" novalidate>
+            <div class="hr-new-form__grid">
+              <div class="field">
+                <label for="hr-new-name">Nama Outlet Baru <span class="req">*</span></label>
+                <input class="input" id="hr-new-name" type="text" maxlength="150" placeholder="Contoh: Anemone Outlet Cabang Baru" autocomplete="off" required>
+              </div>
+              <div class="field">
+                <label for="hr-new-target">Target Opening (opsional)</label>
+                <input class="input" id="hr-new-target" type="date">
+              </div>
+            </div>
+            <div class="hr-match" id="hr-match-result" hidden></div>
+            <div class="hr-new-form__actions">
+              <button type="submit" class="btn btn--primary" id="hr-new-submit" disabled>Daftarkan &amp; Pantau</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modal Detail Pengiriman -->
+  <div class="hr-modal" id="hr-detail-modal" hidden>
+    <div class="hr-modal__backdrop" data-hr-detail-close></div>
+    <section class="hr-modal__card" role="dialog" aria-modal="true" aria-labelledby="hr-detail-title">
+      <header class="hr-modal__head">
+        <div>
+          <p class="hr-eyebrow" id="hr-detail-eyebrow">Detail Pengiriman</p>
+          <h2 id="hr-detail-title">—</h2>
+          <p class="muted" id="hr-detail-meta">—</p>
+        </div>
+        <button type="button" class="btn btn--ghost btn--sm" data-hr-detail-close aria-label="Tutup modal">Tutup</button>
+      </header>
+      <div class="hr-modal__body">
+        <div class="hr-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Nama Barang</th>
+                <th class="num">Qty Dikirim</th>
+                <th>Status</th>
+                <th class="actions-cell">Surat Jalan</th>
+              </tr>
+            </thead>
+            <tbody id="hr-detail-body">
+              <tr><td colspan="5" class="hr-empty">Tidak ada item.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="hr-detail__actions">
+          <a class="btn btn--primary" id="hr-detail-pdf" href="#" target="_blank" rel="noopener noreferrer" hidden>Buka Surat Jalan PDF</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="hr-toast-root" id="hr-toast-root" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="js/config.js?v=20261125-hr"></script>
+  <script src="js/api.js?v=20261125-hr"></script>
+  <script src="js/dashboard-hr.js?v=20261125-hr"></script>
+</body>
+</html>
