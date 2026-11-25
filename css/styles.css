@@ -1180,6 +1180,49 @@ body[data-warehouse="EPIC"] {
   font-weight: 700;
 }
 
+.hr-go-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hr-go-action,
+.hr-go-clear {
+  padding: 4px 7px;
+  border: 1px solid var(--theme-border);
+  border-radius: 7px;
+  background: var(--theme-card);
+  color: var(--primary-color);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hr-go-action:hover,
+.hr-go-clear:hover {
+  background: var(--primary-light);
+}
+
+.hr-go-editor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 230px;
+}
+
+.hr-go-date {
+  width: 145px;
+  min-height: 32px;
+  padding: 4px 7px;
+  font-size: 11px;
+}
+
+.hr-go-clear {
+  color: var(--danger);
+}
+
 .hr-table-progress {
   display: inline-block;
   width: 76px;

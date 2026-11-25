@@ -19,8 +19,32 @@
     var table=el('hr-branch-grid'); if(!table)return;
     var body=table.querySelector?table.querySelector('tbody'):table.getElementsByTagName('tbody')[0]; if(!body)return;
     if(!rows.length){body.innerHTML='<tr><td colspan="6" class="hr-empty">Belum ada outlet yang cocok. Gunakan tombol Kelola Cabang Baru untuk mengatur pantauan.</td></tr>';return;}
-    body.innerHTML=rows.map(function(b,index){var complete=b.statusCode==='SUDAH_DIKIRIM',pct=complete?100:0,label=complete?'100% - SUDAH DIKIRIM':'0% - MENUNGGU KIRIM',target=b.target_opening||b.Target_Opening,dispatch=complete?(b.tanggal_kirim||b.Tanggal_Dispatch):'';return '<tr><td class="hr-branch-number">'+(index+1)+'</td><td><strong class="hr-branch-name">'+escapeHtml(b.Nama_Outlet_Resmi)+'</strong></td><td>'+escapeHtml(formatDate(target))+'</td><td>'+escapeHtml(formatDate(dispatch))+'</td><td><div class="hr-table-progress" role="progressbar" aria-label="Progress pengiriman '+escapeHtml(b.Nama_Outlet_Resmi)+'" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><span style="width:'+pct+'%"></span></div><strong class="hr-table-progress__value">'+pct+'%</strong></td><td><span class="hr-status-badge '+(complete?'is-complete':'is-waiting')+'">'+label+'</span></td></tr>';}).join('');
+    body.innerHTML=rows.map(function(b,index){var complete=b.statusCode==='SUDAH_DIKIRIM',pct=complete?100:0,label=complete?'100% - SUDAH DIKIRIM':'0% - MENUNGGU KIRIM',target=b.target_opening||b.Target_Opening,dispatch=complete?(b.tanggal_kirim||b.Tanggal_Dispatch):'',targetEditor=canManage()?'<button type="button" class="hr-go-action" data-go-edit="'+index+'">'+(target?'✏️ Edit':'+ Set Tanggal')+'</button>':'';return '<tr><td class="hr-branch-number">'+(index+1)+'</td><td><strong class="hr-branch-name">'+escapeHtml(b.Nama_Outlet_Resmi)+'</strong></td><td><div class="hr-go-cell"><span>'+escapeHtml(formatDate(target))+'</span>'+targetEditor+'</div></td><td>'+escapeHtml(formatDate(dispatch))+'</td><td><div class="hr-table-progress" role="progressbar" aria-label="Progress pengiriman '+escapeHtml(b.Nama_Outlet_Resmi)+'" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><span style="width:'+pct+'%"></span></div><strong class="hr-table-progress__value">'+pct+'%</strong></td><td><span class="hr-status-badge '+(complete?'is-complete':'is-waiting')+'">'+label+'</span></td></tr>';}).join('');
+    if(body.querySelectorAll)body.querySelectorAll('[data-go-edit]').forEach(function(button){button.addEventListener('click',function(){var branch=rows[Number(button.getAttribute('data-go-edit'))];if(branch)openTargetEditor(button,branch);});});
     var modal=el('hr-manage-modal'); if(modal&&!modal.hidden)renderManageList();
+  }
+  function openTargetEditor(button, branch) {
+    var cell=button.parentNode;
+    if(!cell||cell.querySelector('.hr-go-editor'))return;
+    var current=branch.target_opening||branch.Target_Opening||'',input=document.createElement('input');
+    input.type='date';input.className='input hr-go-date';input.value=/^\d{4}-\d{2}-\d{2}/.test(current)?current.slice(0,10):'';input.setAttribute('aria-label','Target Tanggal GO (Grand Opening)');
+    var editor=document.createElement('div');editor.className='hr-go-editor';
+    var save=document.createElement('button');save.type='button';save.className='btn btn--primary btn--sm';save.textContent='Simpan';
+    var cancel=document.createElement('button');cancel.type='button';cancel.className='btn btn--ghost btn--sm';cancel.textContent='Batal';
+    var clear=document.createElement('button');clear.type='button';clear.className='hr-go-clear';clear.textContent='Hapus Tanggal';
+    editor.appendChild(input);editor.appendChild(save);editor.appendChild(cancel);editor.appendChild(clear);cell.appendChild(editor);button.hidden=true;
+    var close=function(){editor.remove();button.hidden=false;};
+    cancel.addEventListener('click',close);clear.addEventListener('click',function(){input.value='';saveTargetDate(branch,'',save,close);});
+    save.addEventListener('click',function(){saveTargetDate(branch,input.value,save,close);});
+  }
+  function saveTargetDate(branch, targetDate, button, closeEditor) {
+    if(!canManage()){toast('Login sebagai SPV, Supervisor, atau HOD untuk mengubah target GO.','warning');return;}
+    var name=text(branch.Nama_Outlet_Resmi);if(!name)return;
+    var oldLabel=button.textContent;button.disabled=true;button.textContent='Menyimpan...';
+    request('HR_WATCHLIST_SAVE',{namaOutlet:name,targetOpening:targetDate||'',statusMonitoring:'AKTIF',forceCreate:true,dibuatOleh:'HR Dashboard'})
+      .then(function(){var branches=state.data&&Array.isArray(state.data.branches)?state.data.branches:[];branches.forEach(function(item){if(normalizeName(item.Nama_Outlet_Resmi)===normalizeName(name)){item.target_opening=targetDate||'';item.Target_Opening=targetDate||'';}});state.universe.forEach(function(item){if(normalizeName(item.Nama_Outlet||item.Nama_Outlet_Resmi)===normalizeName(name))item.Target_Opening=targetDate||'';});render();toast('Target GO berhasil diperbarui.','success');})
+      .catch(function(error){toast(error&&error.message||'Target GO gagal disimpan.','danger');})
+      .finally(function(){button.disabled=false;button.textContent=oldLabel;if(closeEditor)closeEditor();});
   }
   function load() { if(state.loading)return Promise.resolve(state.data); state.loading=true;setText('hr-load-state','Memuat data...');return request('HR_CABANG_DASHBOARD').then(function(data){state.data=data||{};state.universe=Array.isArray(data&&data.outletUniverse)?data.outletUniverse:[];render();setText('hr-load-state','Diperbarui '+text(data&&data.generatedAt));return data;}).catch(function(err){var table=el('hr-branch-grid'),body=table&&(table.querySelector?table.querySelector('tbody'):table.getElementsByTagName('tbody')[0]);if(body)body.innerHTML='<tr><td colspan="6" class="hr-empty hr-empty--error">'+escapeHtml(err&&err.message||'Data gagal dimuat.')+'</td></tr>';toast(err&&err.message||'Data gagal dimuat.','danger');throw err;}).finally(function(){state.loading=false;}); }
   function normalizeName(value) { return text(value).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/^(anemone|outlet|cabang)\s+/,''); }
