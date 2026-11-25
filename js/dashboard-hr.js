@@ -3,10 +3,11 @@
  * ---------------------------------------------------------------------------
  * Dashboard HR - Monitoring Pengiriman Cabang Baru.
  *
- * Aturan tampilan mengikuti backend:
- *   - Buku Panduan sudah di-dispatch  -> 50%
- *   - Modul sudah di-dispatch         -> 50%
- *   - Keduanya                        -> 100% dan cabang terkunci SELESAI.
+ * Aturan kelengkapan 100% (baru berdasarkan 28 SKU resmi):
+ * - 100%: minimal 1 transaksi Outbound status DISPATCHED/DELIVERED/Terkirim/COMPLETED
+ *   yang memuat minimal 1 item dengan SKU dari daftar 28 SKU resmi.
+ * - 0%: belum ada transaksi Dispatch untuk SKU tersebut atau belum ada order sama sekali.
+ * - Jika outlet 100%, tampilkan 100% saja, jangan hitung transaksi selanjutnya.
  *
  * Halaman ini tidak memakai login/token. Seluruh request dikirim dengan opsi
  * skipAuth karena endpoint HR bersifat publik. Tombol kembali bersifat
@@ -19,7 +20,6 @@
   var WMS = global.WMS = global.WMS || {};
   var API = WMS.api;
   var SESSION_KEY = 'wms.session.v1';
-  var SIMILARITY_THRESHOLD = 0.82;
 
   var state = {
     data: null,
@@ -40,7 +40,7 @@
 
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+      return { '&': '&', '<': '<', '>': '>' }[char];
     });
   }
 
@@ -97,114 +97,19 @@
   }
 
   /* ------------------------------------------------------------------------
-   * Smart name matching (mirror aturan backend)
+   * Daftar 28 SKU resmi (mirror backend HR_CONFIG.SKU_ALL)
    * ---------------------------------------------------------------------- */
 
-  function normalizeOutletName(value) {
-    var output = String(value == null ? '' : value).toLowerCase();
+  var SKU_RESMI_SET = new Set([
+    '100053', '100052', '100051',                          // Buku Panduan
+    '100025', '100026', '100027', '100028', '100029', '100030', '100031', '100032', // Modul Expro MD
+    '100018', '100019', '100023', '100024',                  // Modul Expro PU
+    '100004', '100005', '100006', '100007', '100009', '100010', '100011', '100012', '100013', '100014', '100015', '100016', '100017' // Modul Membaca
+  ]);
 
-    if (typeof output.normalize === 'function') {
-      output = output.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-    }
-
-    output = output.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-
-    if (!output) return '';
-
-    var prefixes = ['anemone', 'outlet', 'cabang'];
-    var tokens = output.split(' ');
-
-    while (tokens.length > 1 && prefixes.indexOf(tokens[0]) !== -1) tokens.shift();
-
-    return tokens.join(' ');
-  }
-
-  function levenshtein(left, right) {
-    var a = String(left == null ? '' : left);
-    var b = String(right == null ? '' : right);
-
-    if (a === b) return 0;
-    if (!a.length) return b.length;
-    if (!b.length) return a.length;
-
-    var previous = [];
-    var current = [];
-
-    for (var j = 0; j <= b.length; j++) previous[j] = j;
-
-    for (var i = 1; i <= a.length; i++) {
-      current[0] = i;
-
-      for (var k = 1; k <= b.length; k++) {
-        var cost = a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1;
-        current[k] = Math.min(current[k - 1] + 1, previous[k] + 1, previous[k - 1] + cost);
-      }
-
-      var swap = previous;
-      previous = current;
-      current = swap;
-    }
-
-    return previous[b.length];
-  }
-
-  function similarity(left, right) {
-    var a = normalizeOutletName(left);
-    var b = normalizeOutletName(right);
-
-    if (!a || !b) return 0;
-    if (a === b) return 1;
-
-    var maxLength = Math.max(a.length, b.length);
-    var levScore = 1 - (levenshtein(a, b) / maxLength);
-    var leftTokens = a.split(' ');
-    var rightTokens = b.split(' ');
-    var union = {};
-
-    leftTokens.concat(rightTokens).forEach(function (token) {
-      if (token) union[token] = true;
-    });
-
-    var overlap = 0;
-
-    leftTokens.forEach(function (token) {
-      if (token && rightTokens.indexOf(token) !== -1) overlap++;
-    });
-
-    var unionSize = Object.keys(union).length || 1;
-    var jaccard = overlap / unionSize;
-    var shorterLength = Math.min(leftTokens.length, rightTokens.length);
-    var shorterText = a.length <= b.length ? a : b;
-    var containment = 0;
-
-    if (overlap > 0 && (shorterText.length >= 5 || shorterLength >= 2)) {
-      containment = (overlap / shorterLength) * 0.95;
-    }
-
-    return Math.max(levScore, jaccard, containment);
-  }
-
-  function findMatches(name, universe) {
-    var normalized = normalizeOutletName(name);
-
-    if (!normalized) return [];
-
-    return (universe || []).map(function (item) {
-      var candidate = text(item && (item.Nama_Outlet || item.Nama_Outlet_Resmi));
-      var candidateNormalized = text(item && item.Nama_Normalized) || normalizeOutletName(candidate);
-      var score = normalized === candidateNormalized ? 1 : similarity(normalized, candidateNormalized);
-
-      return Object.assign({}, item, {
-        Nama_Outlet: candidate,
-        Nama_Normalized: candidateNormalized,
-        score: score
-      });
-    }).filter(function (item) {
-      return !!item.Nama_Outlet && item.score >= SIMILARITY_THRESHOLD;
-    }).sort(function (left, right) {
-      if (right.score !== left.score) return right.score - left.score;
-      return left.Nama_Outlet.localeCompare(right.Nama_Outlet);
-    }).slice(0, 6);
+  function isSkuResmi(sku) {
+    if (!sku) return false;
+    return SKU_RESMI_SET.has(String(sku).trim());
   }
 
   /* ------------------------------------------------------------------------
@@ -307,16 +212,24 @@
     return !query || String(name == null ? '' : name).toLowerCase().indexOf(query) !== -1;
   }
 
+  function filteredStatus(statusFilter) {
+    if (!statusFilter) return true;
+    return statusFilter === 'SELESAI'
+      ? function (b) { return b.isCompleted; }
+      : function (b) { return !b.isCompleted; };
+  }
+
   function filteredBranches() {
     var source = state.data && Array.isArray(state.data.branches) ? state.data.branches : [];
 
     return source.filter(function (branch) {
       if (!matchesBranchName(branch.Nama_Outlet_Resmi)) return false;
 
-      var locked = !!branch.locked || branch.Status_Monitoring === 'SELESAI';
-
-      if (state.filters.status === 'SELESAI' && !locked) return false;
-      if (state.filters.status === 'PROSES' && locked) return false;
+      var statusFilter = state.filters.status;
+      if (statusFilter) {
+        var filterFn = filteredStatus(statusFilter);
+        if (!filterFn(branch)) return false;
+      }
 
       return true;
     });
@@ -340,12 +253,8 @@
   function computeKpis(branches) {
     return {
       cabangDipantau: branches.length,
-      cabangSelesai: branches.filter(function (branch) {
-        return !!branch.locked || branch.Status_Monitoring === 'SELESAI';
-      }).length,
-      menunggu: branches.filter(function (branch) {
-        return !branch.locked && branch.Status_Monitoring !== 'SELESAI';
-      }).length,
+      cabangSelesai: branches.filter(function (b) { return b.isCompleted; }).length,
+      menunggu: branches.filter(function (b) { return !b.isCompleted; }).length,
       totalDoKelengkapan: branches.reduce(function (sum, branch) {
         return sum + (Number(branch.totalDo) || 0);
       }, 0)
@@ -353,7 +262,7 @@
   }
 
   /* ------------------------------------------------------------------------
-   * Render dashboard
+   * Render
    * ---------------------------------------------------------------------- */
 
   function render() {
@@ -377,99 +286,26 @@
     setText('hr-kpi-total-do', fmt(kpi.totalDoKelengkapan));
   }
 
-  function pillarBadge(pilar) {
-    if (pilar === 'BUKU_PANDUAN') return '<span class="badge badge--accent">Buku Panduan</span>';
-    if (pilar === 'MODUL') return '<span class="badge badge--info">Modul</span>';
-    return '';
+  function statusLabelBadge(statusLabel) {
+    if (statusLabel && statusLabel.indexOf('100%') !== -1) {
+      return '<span class="badge badge--success">' + esc(statusLabel) + '</span>';
+    }
+    if (statusLabel && statusLabel.indexOf('0%') !== -1) {
+      return '<span class="badge badge--neutral">' + esc(statusLabel) + '</span>';
+    }
+    return '<span class="badge badge--warning">' + esc(statusLabel) + '</span>';
   }
 
-  function itemPilarBadges(item) {
-    var badges = [];
-
-    if (item && item.pilarBukuPanduan) badges.push(pillarBadge('BUKU_PANDUAN'));
-    if (item && item.pilarModul) badges.push(pillarBadge('MODUL'));
-
-    return badges.join(' ');
-  }
-
-  function shipmentStatusBadge(statusKirim) {
+  function shipmentStatusLabel(statusKirim) {
     var value = text(statusKirim).toUpperCase();
 
-    if (value === 'TERKIRIM') return '<span class="badge badge--success">Terkirim</span>';
-    if (value === 'DIKIRIM') return '<span class="badge badge--info">Dikirim</span>';
-
-    return '<span class="badge badge--warning">Menunggu Dispatch</span>';
-  }
-
-  function itemStatusBadge(item) {
-    var label = text(item && item.statusLabel).toUpperCase();
-
-    if (label === 'TERKIRIM') return '<span class="badge badge--success">Terkirim</span>';
-    if (label === 'DIKIRIM') return '<span class="badge badge--info">Dikirim</span>';
-
-    return '<span class="badge badge--warning">Menunggu Dispatch</span>';
-  }
-
-  function waitingLabel(branch) {
-    var buku = branch.bukuPanduan && branch.bukuPanduan.done;
-    var modul = branch.modul && branch.modul.done;
-
-    if (!buku && !modul) return 'Buku Panduan & Modul';
-    if (!buku) return 'Buku Panduan';
-    if (!modul) return 'Modul';
-    return '';
-  }
-
-  function pillarRow(label, pillar) {
-    var done = !!(pillar && pillar.done);
-    var qty = num(pillar && pillar.qty);
-    var doCount = num(pillar && pillar.doCount);
-
-    return '<div class="hr-pillar' + (done ? ' is-done' : '') + '">' +
-      '<span class="hr-pillar__mark" aria-hidden="true">' + (done ? '✓' : '○') + '</span>' +
-      '<div class="hr-pillar__text">' +
-        '<strong>' + esc(label) + '</strong>' +
-        '<small>' + (done
-          ? 'Sudah di-dispatch · ' + fmt(qty) + ' qty · ' + fmt(doCount) + ' DO'
-          : 'Menunggu dispatch') + '</small>' +
-      '</div>' +
-      '<span class="hr-pillar__points">' + (done ? '50%' : '0%') + '</span>' +
-    '</div>';
-  }
-
-  function branchCard(branch) {
-    var progress = Math.max(0, Math.min(100, num(branch.progress)));
-    var locked = !!branch.locked || branch.Status_Monitoring === 'SELESAI';
-    var target = branch.Target_Opening
-      ? 'Target opening: ' + fmtDate(branch.Target_Opening)
-      : 'Target opening belum ditentukan';
-    var footBadge;
-
-    if (locked) {
-      footBadge = '<span class="badge badge--success">Lengkap 100% (Selesai)</span>';
-    } else if (progress >= 50) {
-      footBadge = '<span class="badge badge--info">50% · Menunggu ' + esc(waitingLabel(branch)) + '</span>';
-    } else {
-      footBadge = '<span class="badge badge--warning">Menunggu Dispatch Buku Panduan &amp; Modul</span>';
+    if (value === 'DELIVERED' || value === 'TERKIRIM' || value === 'COMPLETED') {
+      return '100% — Sudah Dikirim';
     }
-
-    return '<article class="hr-branch-card' + (locked ? ' is-locked' : '') + '">' +
-      '<header class="hr-branch-card__head">' +
-        '<div>' +
-          '<h3>' + esc(branch.Nama_Outlet_Resmi) + '</h3>' +
-          '<p class="hr-branch-card__meta">' + esc(target) + '</p>' +
-        '</div>' +
-        '<strong class="hr-branch-card__pct">' + pct(progress) + '</strong>' +
-      '</header>' +
-      '<div class="hr-progress' + (locked ? ' hr-progress--locked' : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress + '">' +
-        '<span style="width:' + progress + '%"></span>' +
-      '</div>' +
-      '<div class="hr-pillars">' +
-        pillarRow('Buku Panduan', branch.bukuPanduan) +
-        pillarRow('Modul', branch.modul) +
-      '</div>' +
-      '<div class="hr-branch-card__foot">' + footBadge + '</div>' +
-    '</article>';
+    if (value === 'DISPATCHED') {
+      return '0% — Menunggu Pengiriman';
+    }
+    return '0% — Menunggu Pengiriman';
   }
 
   function renderBranches(branches) {
@@ -484,7 +320,25 @@
       return;
     }
 
-    grid.innerHTML = branches.map(branchCard).join('');
+    grid.innerHTML = branches.map(function (branch) {
+      var isCompleted = !!branch.isCompleted;
+      var progress = isCompleted ? 100 : 0;
+      var statusBadge = statusLabelBadge(branch.statusLabel);
+
+      return '<article class="hr-branch-card' + (isCompleted ? ' is-completed' : '') + '">' +
+        '<header class="hr-branch-card__head">' +
+          '<div>' +
+            '<h3>' + esc(branch.Nama_Outlet_Resmi) + '</h3>' +
+            '<p class="hr-branch-card__meta">Acuan: Pengiriman Outbound (status Dispatched) yang memuat SKU Buku Panduan atau Modul.</p>' +
+          '</div>' +
+          '<strong class="hr-branch-card__pct">' + pct(progress) + '</strong>' +
+        '</header>' +
+        '<div class="hr-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress + '">' +
+          '<span style="width:' + progress + '%"></span>' +
+        '</div>' +
+        '<div class="hr-branch-card__foot">' + statusBadge + '</div>' +
+      '</article>';
+    }).join('');
   }
 
   function renderShipments(branches) {
@@ -502,19 +356,21 @@
     }
 
     body.innerHTML = shipments.map(function (shipment, index) {
+      var sku = shipment && shipment.kodeSku;
+      var isResmi = isSkuResmi(sku);
+      var status = shipmentStatusLabel(shipment && shipment.statusKirim);
       var pdf = shipment.linkPdf
         ? '<a class="link" href="' + esc(shipment.linkPdf) + '" target="_blank" rel="noopener noreferrer" data-pdf-link>Lihat PDF</a>'
         : '<span class="muted">—</span>';
-      var pillars = (shipment.pillars || []).map(pillarBadge).join(' ');
 
       return '<tr data-shipment-index="' + index + '" tabindex="0" role="button" aria-label="Buka detail ' + esc(shipment.noDo) + '">' +
         '<td><strong>' + esc(shipment.noDo) + '</strong></td>' +
         '<td>' + esc(shipment.tujuan) + '</td>' +
-        '<td><span class="badge badge--' + (shipment.entitas === 'EPIC' ? 'accent' : 'info') + '">' + esc(shipment.entitas) + '</span></td>' +
+        '<td><span class="badge badge--' + (shipment.entitas === 'EPIC' ? 'accent' : 'info') + '\">' + esc(shipment.entitas) + '</span></td>' +
         '<td>' + esc(fmtDate(shipment.tanggalOrder)) + '</td>' +
-        '<td>' + (pillars || '<span class="muted">—</span>') + '</td>' +
-        '<td class="num">' + fmt(shipment.totalQty) + '</td>' +
-        '<td>' + shipmentStatusBadge(shipment.statusKirim) + '</td>' +
+        '<td>' + (isResmi ? '<span class="badge badge--success">Resmi</span>' : '<span class="badge badge--neutral">Non-resmi</span>') + '</td>' +
+        '<td class="num">' + fmt(shipment.qty) + '</td>' +
+        '<td>' + status + '</td>' +
         '<td class="actions-cell">' + pdf + '</td>' +
       '</tr>';
     }).join('');
@@ -559,16 +415,21 @@
 
     body.innerHTML = items.length
       ? items.map(function (item) {
-          var pdf = item.linkPdf
+          var pdf = item && item.linkPdf
             ? '<a class="link" href="' + esc(item.linkPdf) + '" target="_blank" rel="noopener noreferrer">PDF</a>'
             : '<span class="muted">—</span>';
 
+          var pilarBadge = '';
+          if (item && item.pilar) {
+            pilarBadge = '<span class="badge badge--info">' + esc(item.pilar) + '</span>';
+          }
+
           return '<tr>' +
-            '<td><strong>' + esc(item.kodeSku) + '</strong></td>' +
-            '<td>' + esc(item.namaBarang) + '</td>' +
-            '<td>' + (itemPilarBadges(item) || '<span class="muted">—</span>') + '</td>' +
-            '<td class="num">' + fmt(item.qty) + '</td>' +
-            '<td>' + itemStatusBadge(item) + '</td>' +
+            '<td><strong>' + esc(item && item.kodeSku) + '</strong></td>' +
+            '<td>' + esc(item && item.namaBarang) + '</td>' +
+            '<td>' + (pilarBadge || '<span class="muted">—</span>') + '</td>' +
+            '<td class="num">' + fmt(item && item.qty) + '</td>' +
+            '<td>' + (item && item.statusLabel ? '<span class="badge badge--' + (item.statusLabel.indexOf('100%') !== -1 ? 'success' : 'neutral') + '">' + esc(item.statusLabel) + '</span>' : '') + '</td>' +
             '<td class="actions-cell">' + pdf + '</td>' +
           '</tr>';
         }).join('')
@@ -660,16 +521,6 @@
     }).join('');
   }
 
-  function outletStatusBadge(status) {
-    var value = text(status).toUpperCase();
-
-    if (value === 'SELESAI') return '<span class="badge badge--success">Selesai 100%</span>';
-    if (value === 'AKTIF') return '<span class="badge badge--success">Aktif</span>';
-    if (value === 'NONAKTIF') return '<span class="badge badge--danger">Nonaktif</span>';
-
-    return '<span class="badge badge--neutral">Belum dipantau</span>';
-  }
-
   function renderManageList() {
     var list = $('hr-outlet-list');
     if (!list) return;
@@ -691,18 +542,19 @@
       var name = text(item.Nama_Outlet || item.Nama_Outlet_Resmi);
       var normalized = text(item.Nama_Normalized) || normalizeOutletName(name);
       var status = text(item.Status_Monitoring).toUpperCase();
-      var active = status === 'AKTIF' || status === 'SELESAI';
-      var locked = status === 'SELESAI';
+      var isCompleted = status === 'SELESAI'; // SELESAI dipakai saat sudah pernah 100%
       var target = item.Target_Opening ? ' · Target ' + fmtDate(item.Target_Opening) : '';
 
-      return '<label class="hr-outlet-item' + (active ? ' is-active' : '') + (locked ? ' is-locked' : '') + '">' +
+      return '<label class="hr-outlet-item' + (isCompleted ? ' is-completed' : '') + '">' +
         '<input type="checkbox" data-outlet-checkbox data-outlet-key="' + esc(normalized) + '"' +
-          (active ? ' checked' : '') + (locked ? ' disabled' : '') + '>' +
+          (isCompleted ? ' checked' : '') + ' disabled>' +
         '<span class="hr-outlet-item__main">' +
           '<strong>' + esc(name) + '</strong>' +
           '<span class="hr-outlet-item__meta">' + sourceBadges(item.Sumber) + esc(target) + '</span>' +
         '</span>' +
-        outletStatusBadge(status) +
+        '<span class="hr-outlet-item__status ' + (isCompleted ? 'is-completed' : '') + '">' +
+          (isCompleted ? '100% Selesai' : 'Belum Selesai') +
+        '</span>' +
       '</label>';
     }).join('');
   }
@@ -746,7 +598,7 @@
   }
 
   /* ------------------------------------------------------------------------
-   * Form outlet baru + pencocokan real-time
+   * Form outlet baru
    * ---------------------------------------------------------------------- */
 
   function updateMatch() {
@@ -766,7 +618,18 @@
       return;
     }
 
-    var matches = findMatches(name, state.universe);
+    // Cari match di universe
+    var matches = [];
+    (state.universe || []).forEach(function (item) {
+      var candidate = text(item && (item.Nama_Outlet || item.Nama_Outlet_Resmi));
+      var candidateNormalized = text(item && item.Nama_Normalized) || normalizeOutletName(candidate);
+      var normalized = normalizeOutletName(name);
+      var score = normalized === candidateNormalized ? 1 : 0; // sederhana
+
+      if (score === 1) {
+        matches.push(item);
+      }
+    });
 
     if (matches.length) {
       var exact = matches.some(function (item) {
@@ -1048,12 +911,10 @@
     init();
   }
 
-  // Hook test/console: fungsi murni pencocokan nama.
+  // Hook test/console
   WMS.hrDashboard = {
-    normalizeOutletName: normalizeOutletName,
-    similarity: similarity,
-    findMatches: findMatches,
-    computeKpis: computeKpis,
-    load: load
+    isSkuResmi: isSkuResmi,
+    load: load,
+    computeKpis: computeKpis
   };
 })(window);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0F172A">
-  <meta name="description" content="Monitoring Pengiriman Cabang Baru — HR. Pantau kelengkapan Buku Panduan & Modul dari CV EPIC dan PT GEA.">
+  <meta name="description" content="Monitoring Pengiriman Cabang Baru — HR. Pantau kelengkapan pengiriman berdasarkan 28 SKU resmi.">
   <title>Monitoring Pengiriman Cabang Baru — HR</title>
   <link rel="icon" type="image/png" href="assets/favicon-anemone.png?v=20261125-anemone">
   <link rel="apple-touch-icon" href="assets/icon-anemone-192.png?v=20261125-anemone">
@@ -53,8 +53,8 @@
         <label for="hr-filter-status">Status Kelengkapan</label>
         <select class="select" id="hr-filter-status">
           <option value="">Semua Status</option>
-          <option value="PROSES">Proses (Belum 100%)</option>
-          <option value="SELESAI">Selesai 100%</option>
+          <option value="SELESAI">100% — Sudah Dikirim</option>
+          <option value="MENUNGGU">0% — Menunggu Pengiriman</option>
         </select>
       </div>
       <div class="hr-filter-field hr-filter-field--action">
@@ -67,22 +67,22 @@
       <article class="hr-kpi hr-kpi--brand">
         <span>Cabang Dipantau</span>
         <strong id="hr-kpi-branches">—</strong>
-        <small>Outlet AKTIF &amp; SELESAI di watchlist HR</small>
+        <small>Cabang baru yang diamati HR</small>
       </article>
       <article class="hr-kpi hr-kpi--done">
         <span>Cabang Selesai 100%</span>
         <strong id="hr-kpi-completed">—</strong>
-        <small>Buku Panduan &amp; Modul sudah di-dispatch</small>
+        <small>Telah mencapai 100% berdasarkan 28 SKU</small>
       </article>
       <article class="hr-kpi">
-        <span>Menunggu Buku Panduan / Modul</span>
+        <span>Menunggu Pengiriman</span>
         <strong id="hr-kpi-waiting">—</strong>
-        <small>Cabang yang belum lengkap 100%</small>
+        <small>Cabang yang belum mencapai 100%</small>
       </article>
       <article class="hr-kpi">
-        <span>Total DO Kelengkapan</span>
+        <span>Total DO Terdaftar</span>
         <strong id="hr-kpi-total-do">—</strong>
-        <small>DO yang memuat Buku Panduan / Modul</small>
+        <small>Total DO yang memuat SKU resmi</small>
       </article>
     </section>
 
@@ -90,7 +90,7 @@
       <div class="hr-section__head">
         <div>
           <h2 id="hr-branch-heading">Progress Kelengkapan per Cabang Baru</h2>
-          <p class="muted">Dua pilar: Buku Panduan (50%) dan Modul (50%). Terkunci otomatis saat 100%.</p>
+          <p class="muted">Acuan: Pengiriman Outbound (status Dispatched) yang memuat SKU Buku Panduan atau Modul (28 SKU resmi).</p>
         </div>
         <span class="pill pill--muted" id="hr-branch-count">0 cabang</span>
       </div>
@@ -102,8 +102,8 @@
     <section class="hr-panel" aria-labelledby="hr-shipment-heading">
       <div class="hr-section__head">
         <div>
-          <h2 id="hr-shipment-heading">Rincian Pengiriman Buku Panduan &amp; Modul</h2>
-          <p class="muted">Hanya DO yang memuat item kelengkapan. Klik baris untuk melihat rincian SKU dan Surat Jalan.</p>
+          <h2 id="hr-shipment-heading">Rincian Pengiriman Buku Panduan & Modul</h2>
+          <p class="muted">Tampilkan DO yang memuat SKU dari 28 daftar resmi. Klik baris untuk melihat rincian.</p>
         </div>
         <span class="pill pill--muted" id="hr-shipment-count">0 DO</span>
       </div>
@@ -115,7 +115,7 @@
               <th>Cabang Baru</th>
               <th>Entitas</th>
               <th>Tanggal Order</th>
-              <th>Pilar</th>
+              <th>SKU</th>
               <th class="num">Qty</th>
               <th>Status</th>
               <th class="actions-cell">Surat Jalan</th>
@@ -137,7 +137,7 @@
         <div>
           <p class="hr-eyebrow">Watchlist HR</p>
           <h2 id="hr-manage-title">Kelola Cabang Baru</h2>
-          <p class="muted">Aktifkan outlet terdaftar atau daftarkan nama outlet baru dengan pencocokan cerdas.</p>
+          <p class="muted">Aktifkan cabang atau lihat daftar outlet terdaftar.</p>
         </div>
         <button type="button" class="btn btn--ghost btn--sm" data-hr-manage-close aria-label="Tutup modal">Tutup</button>
       </header>
@@ -146,8 +146,8 @@
         <section class="hr-manage-block" aria-labelledby="hr-manage-list-title">
           <div class="hr-manage-block__head">
             <div>
-              <h3 id="hr-manage-list-title">1. Pilih dari Daftar Outlet Terdaftar</h3>
-              <p class="muted">Gabungan Master Outlet, watchlist HR, dan histori Outbound CV EPIC &amp; PT GEA.</p>
+              <h3 id="hr-manage-list-title">1. Daftar Outlet Terdaftar</h3>
+              <p class="muted">Gabungan Master Outlet, watchlist HR, dan histori Outbound CV EPIC & PT GEA.</p>
             </div>
             <span class="pill pill--muted" id="hr-outlet-count">0 outlet</span>
           </div>
@@ -157,31 +157,6 @@
           <div class="hr-outlet-list" id="hr-outlet-list">
             <div class="hr-empty">Memuat daftar outlet…</div>
           </div>
-        </section>
-
-        <section class="hr-manage-block" aria-labelledby="hr-manage-new-title">
-          <div class="hr-manage-block__head">
-            <div>
-              <h3 id="hr-manage-new-title">2. Input Nama Outlet Baru</h3>
-              <p class="muted">Pencocokan real-time mencegah duplikasi nama outlet.</p>
-            </div>
-          </div>
-          <form id="hr-new-form" class="hr-new-form" novalidate>
-            <div class="hr-new-form__grid">
-              <div class="field">
-                <label for="hr-new-name">Nama Outlet Baru <span class="req">*</span></label>
-                <input class="input" id="hr-new-name" type="text" maxlength="150" placeholder="Contoh: Anemone Outlet Cabang Baru" autocomplete="off" required>
-              </div>
-              <div class="field">
-                <label for="hr-new-target">Target Opening (opsional)</label>
-                <input class="input" id="hr-new-target" type="date">
-              </div>
-            </div>
-            <div class="hr-match" id="hr-match-result" hidden></div>
-            <div class="hr-new-form__actions">
-              <button type="submit" class="btn btn--primary" id="hr-new-submit" disabled>Daftarkan &amp; Pantau</button>
-            </div>
-          </form>
         </section>
       </div>
     </section>
