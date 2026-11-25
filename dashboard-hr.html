@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0F172A">
-  <meta name="description" content="Monitoring Pengiriman Cabang Baru — HR. Pantau kelengkapan pengiriman berdasarkan 28 SKU resmi.">
-  <title>Monitoring Pengiriman Cabang Baru — HR</title>
-  <link rel="icon" type="image/png" href="assets/favicon-anemone.png?v=20261125-anemone">
-  <link rel="apple-touch-icon" href="assets/icon-anemone-192.png?v=20261125-anemone">
-  <link rel="manifest" href="manifest.json?v=20261125-anemone">
+  <meta name="description" content="Monitoring Pengiriman Cabang Baru - HR. Pantau status pengiriman outlet cabang baru.">
+  <title>Monitoring Pengiriman Cabang Baru - HR</title>
+  <link rel="icon" type="image/png" href="assets/favicon-anemone.png?v=20261125-audit">
+  <link rel="apple-touch-icon" href="assets/icon-anemone-192.png?v=20261125-audit">
+  <link rel="manifest" href="manifest.json?v=20261125-audit">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/base.css?v=20261125-hr">
-  <link rel="stylesheet" href="css/styles.css?v=20261125-hr">
-  <script src="js/theme.js?v=20261125-hr"></script>
+  <link rel="stylesheet" href="css/base.css?v=20261125-audit">
+  <link rel="stylesheet" href="css/styles.css?v=20261125-audit">
+  <script src="js/theme.js?v=20261125-audit"></script>
 </head>
 <body class="hr-page" data-warehouse="ALL">
   <noscript>
@@ -29,14 +29,14 @@
         <img src="assets/logo-anemone.png" alt="Logo My Anemone" width="34" height="38">
       </span>
       <div class="hr-brand__text">
-        <p class="hr-eyebrow">Human Resources · My Anemone</p>
+        <p class="hr-eyebrow">Human Resources | My Anemone</p>
         <h1>Monitoring Pengiriman Cabang Baru</h1>
       </div>
     </div>
 
     <div class="hr-header__actions">
-      <span id="hr-load-state" class="hr-load-state muted" role="status">Memuat…</span>
-      <button type="button" class="btn btn--ghost btn--sm" data-theme-toggle aria-label="Ganti tema">🌙</button>
+      <span id="hr-load-state" class="hr-load-state muted" role="status">Memuat...</span>
+      <button type="button" class="btn btn--ghost btn--sm" data-theme-toggle aria-label="Ganti tema">Tema</button>
       <button type="button" class="btn btn--secondary btn--sm" data-hr-reload>Muat Ulang</button>
       <button type="button" class="btn btn--primary btn--sm" id="hr-manage-open">Kelola Cabang Baru</button>
       <a class="btn btn--ghost btn--sm" id="hr-back" href="index.html" hidden>Kembali ke Operasional</a>
@@ -45,88 +45,43 @@
 
   <main class="hr-main">
     <section class="hr-filters" aria-label="Filter dashboard HR">
-      <div class="hr-filter-field">
-        <label for="hr-filter-branch">Semua Cabang</label>
-        <input class="input" id="hr-filter-branch" type="search" placeholder="Cari nama cabang baru…" autocomplete="off">
-      </div>
-      <div class="hr-filter-field">
-        <label for="hr-filter-status">Status Kelengkapan</label>
-        <select class="select" id="hr-filter-status">
-          <option value="">Semua Status</option>
-          <option value="SELESAI">100% — Sudah Dikirim</option>
-          <option value="MENUNGGU">0% — Menunggu Pengiriman</option>
-        </select>
-      </div>
-      <div class="hr-filter-field hr-filter-field--action">
-        <span class="hr-filter-field__label">Perbarui Data</span>
-        <button type="button" class="btn btn--secondary btn--block" data-hr-reload>Muat Ulang</button>
-      </div>
+      <div class="hr-filter-field"><label for="hr-filter-branch">Filter Outlet</label><input class="input" id="hr-filter-branch" type="search" placeholder="Cari nama outlet..." autocomplete="off"></div>
+      <div class="hr-filter-field"><label for="hr-filter-status">Filter Status</label><select class="select" id="hr-filter-status"><option value="">Semua</option><option value="MENUNGGU_KIRIM">Menunggu Kirim</option><option value="SUDAH_DIKIRIM">Sudah Dikirim</option></select></div>
+      <div class="hr-filter-field hr-filter-field--action"><span class="hr-filter-field__label">Perbarui Data</span><button type="button" class="btn btn--secondary btn--block" data-hr-reload>Muat Ulang</button></div>
     </section>
 
     <section class="hr-kpis" aria-label="Ringkasan KPI">
       <article class="hr-kpi hr-kpi--brand">
-        <span>Cabang Dipantau</span>
-        <strong id="hr-kpi-branches">—</strong>
+        <span>Total Cabang Dipantau</span>
+        <strong id="hr-kpi-branches">-</strong>
         <small>Cabang baru yang diamati HR</small>
       </article>
       <article class="hr-kpi hr-kpi--done">
         <span>Cabang Selesai 100%</span>
-        <strong id="hr-kpi-completed">—</strong>
-        <small>Telah mencapai 100% berdasarkan 28 SKU</small>
+        <strong id="hr-kpi-completed">-</strong>
+        <small>Status pengiriman outlet</small>
       </article>
       <article class="hr-kpi">
         <span>Menunggu Pengiriman</span>
-        <strong id="hr-kpi-waiting">—</strong>
-        <small>Cabang yang belum mencapai 100%</small>
-      </article>
-      <article class="hr-kpi">
-        <span>Total DO Terdaftar</span>
-        <strong id="hr-kpi-total-do">—</strong>
-        <small>Total DO yang memuat SKU resmi</small>
+        <strong id="hr-kpi-waiting">-</strong>
+        <small>Status belum dikirim</small>
       </article>
     </section>
 
     <section class="hr-section" aria-labelledby="hr-branch-heading">
       <div class="hr-section__head">
         <div>
-          <h2 id="hr-branch-heading">Progress Kelengkapan per Cabang Baru</h2>
-          <p class="muted">Acuan: Pengiriman Outbound (status Dispatched) yang memuat SKU Buku Panduan atau Modul (28 SKU resmi).</p>
+          <h2 id="hr-branch-heading">Daftar Outlet Cabang Baru</h2>
+          <p class="muted">Status pengiriman outlet yang dipantau HR.</p>
         </div>
         <span class="pill pill--muted" id="hr-branch-count">0 cabang</span>
       </div>
       <div class="hr-branch-grid" id="hr-branch-grid">
-        <div class="hr-empty">Memuat data cabang…</div>
+        <div class="hr-empty">Memuat data cabang...</div>
       </div>
     </section>
 
-    <section class="hr-panel" aria-labelledby="hr-shipment-heading">
-      <div class="hr-section__head">
-        <div>
-          <h2 id="hr-shipment-heading">Rincian Pengiriman Buku Panduan & Modul</h2>
-          <p class="muted">Tampilkan DO yang memuat SKU dari 28 daftar resmi. Klik baris untuk melihat rincian.</p>
-        </div>
-        <span class="pill pill--muted" id="hr-shipment-count">0 DO</span>
-      </div>
-      <div class="hr-table-wrap">
-        <table class="data-table hr-table">
-          <thead>
-            <tr>
-              <th>No DO</th>
-              <th>Cabang Baru</th>
-              <th>Entitas</th>
-              <th>Tanggal Order</th>
-              <th>SKU</th>
-              <th class="num">Qty</th>
-              <th>Status</th>
-              <th class="actions-cell">Surat Jalan</th>
-            </tr>
-          </thead>
-          <tbody id="hr-shipment-body">
-            <tr><td colspan="8" class="hr-empty">Memuat pengiriman…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    
   </main>
 
   <!-- Modal Kelola Cabang Baru -->
@@ -143,66 +98,45 @@
       </header>
 
       <div class="hr-modal__body">
+        <section class="hr-manage-block" aria-labelledby="hr-new-outlet-title">
+          <div class="hr-manage-block__head">
+            <div>
+              <h3 id="hr-new-outlet-title">Daftarkan Cabang Baru</h3>
+              <p class="muted">Nama outlet diperiksa terhadap daftar resmi dan outlet yang sudah dipantau.</p>
+            </div>
+          </div>
+          <form id="hr-new-form" class="hr-new-form">
+            <label class="hr-filter-field">Nama Outlet<input class="input" id="hr-new-name" name="namaOutlet" maxlength="150" required autocomplete="off"></label>
+            <label class="hr-filter-field">Target Opening<input class="input" id="hr-new-target" name="targetOpening" type="date"></label>
+            <button type="submit" class="btn btn--primary" id="hr-new-submit">Daftarkan Outlet</button>
+          </form>
+          <div class="hr-match" id="hr-match-result" hidden aria-live="polite"></div>
+        </section>
         <section class="hr-manage-block" aria-labelledby="hr-manage-list-title">
           <div class="hr-manage-block__head">
             <div>
               <h3 id="hr-manage-list-title">1. Daftar Outlet Terdaftar</h3>
-              <p class="muted">Gabungan Master Outlet, watchlist HR, dan histori Outbound CV EPIC & PT GEA.</p>
+              <p class="muted">Daftar outlet resmi dan watchlist HR; status pengiriman tetap ditampilkan tanpa rincian barang.</p>
             </div>
             <span class="pill pill--muted" id="hr-outlet-count">0 outlet</span>
           </div>
           <div class="hr-manage-search">
-            <input class="input" id="hr-outlet-search" type="search" placeholder="Cari nama outlet terdaftar…" autocomplete="off">
+            <input class="input" id="hr-outlet-search" type="search" placeholder="Cari nama outlet terdaftar..." autocomplete="off">
           </div>
           <div class="hr-outlet-list" id="hr-outlet-list">
-            <div class="hr-empty">Memuat daftar outlet…</div>
+            <div class="hr-empty">Memuat daftar outlet...</div>
           </div>
         </section>
       </div>
     </section>
   </div>
 
-  <!-- Modal Detail Pengiriman -->
-  <div class="hr-modal" id="hr-detail-modal" hidden>
-    <div class="hr-modal__backdrop" data-hr-detail-close></div>
-    <section class="hr-modal__card" role="dialog" aria-modal="true" aria-labelledby="hr-detail-title">
-      <header class="hr-modal__head">
-        <div>
-          <p class="hr-eyebrow" id="hr-detail-eyebrow">Detail Pengiriman</p>
-          <h2 id="hr-detail-title">—</h2>
-          <p class="muted" id="hr-detail-meta">—</p>
-        </div>
-        <button type="button" class="btn btn--ghost btn--sm" data-hr-detail-close aria-label="Tutup modal">Tutup</button>
-      </header>
-      <div class="hr-modal__body">
-        <div class="hr-table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Nama Barang</th>
-                <th>Pilar</th>
-                <th class="num">Qty</th>
-                <th>Status</th>
-                <th class="actions-cell">Surat Jalan</th>
-              </tr>
-            </thead>
-            <tbody id="hr-detail-body">
-              <tr><td colspan="6" class="hr-empty">Tidak ada item.</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="hr-detail__actions">
-          <a class="btn btn--primary" id="hr-detail-pdf" href="#" target="_blank" rel="noopener noreferrer" hidden>Buka Surat Jalan PDF</a>
-        </div>
-      </div>
-    </section>
-  </div>
-
   <div class="hr-toast-root" id="hr-toast-root" aria-live="polite" aria-atomic="false"></div>
 
-  <script src="js/config.js?v=20261125-hr"></script>
-  <script src="js/api.js?v=20261125-hr"></script>
-  <script src="js/dashboard-hr.js?v=20261125-hr"></script>
+  <script src="js/config.js?v=20261125-audit"></script>
+  <script src="js/api.js?v=20261125-audit"></script>
+  <script src="js/dashboard-hr.js?v=20261125-audit"></script>
 </body>
 </html>
+
+
