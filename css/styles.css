@@ -1121,11 +1121,116 @@ body[data-warehouse="EPIC"] {
   box-shadow: var(--shadow-sm);
 }
 
-/* --- Branch cards --- */
-.hr-branch-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: 14px;
+/* --- Outlet list table --- */
+.hr-branch-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--theme-border);
+  border-radius: 14px;
+  background: var(--theme-card);
+  box-shadow: var(--shadow-xs);
+  -webkit-overflow-scrolling: touch;
+}
+
+.hr-branch-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+}
+
+.hr-branch-table th,
+.hr-branch-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--theme-border);
+  color: var(--theme-text);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.hr-branch-table th {
+  background: var(--surface-muted);
+  color: var(--theme-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.hr-branch-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.hr-branch-table tbody tr:hover {
+  background: var(--surface-muted);
+}
+
+.hr-branch-table .hr-empty {
+  white-space: normal;
+}
+
+.hr-branch-number {
+  width: 48px;
+  color: var(--theme-muted) !important;
+  text-align: center !important;
+}
+
+.hr-branch-name {
+  color: var(--theme-text);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.hr-table-progress {
+  display: inline-block;
+  width: 76px;
+  height: 8px;
+  overflow: hidden;
+  margin-right: 8px;
+  border: 1px solid var(--theme-border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  vertical-align: middle;
+}
+
+.hr-table-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary-color), #22c55e);
+  transition: width 0.3s ease;
+}
+
+[data-theme="dark"] .hr-table-progress > span {
+  background: linear-gradient(90deg, #38bdf8, #34d399);
+}
+
+.hr-table-progress__value {
+  color: var(--theme-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hr-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+.hr-status-badge.is-complete {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.hr-status-badge.is-waiting {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .hr-branch-card {
@@ -1661,10 +1766,6 @@ body.hr-modal-open {
 }
 
 @media (max-width: 460px) {
-  .hr-branch-grid {
-    grid-template-columns: 1fr;
-  }
-
   .hr-entity-grid {
     grid-template-columns: 1fr;
   }

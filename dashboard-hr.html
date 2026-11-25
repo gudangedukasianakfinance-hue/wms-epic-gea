@@ -12,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/base.css?v=20261125-audit">
-  <link rel="stylesheet" href="css/styles.css?v=20261125-audit">
+  <link rel="stylesheet" href="css/base.css?v=20261125-table">
+  <link rel="stylesheet" href="css/styles.css?v=20261125-table">
   <script src="js/theme.js?v=20261125-audit"></script>
 </head>
 <body class="hr-page" data-warehouse="ALL">
@@ -76,8 +76,11 @@
         </div>
         <span class="pill pill--muted" id="hr-branch-count">0 cabang</span>
       </div>
-      <div class="hr-branch-grid" id="hr-branch-grid">
-        <div class="hr-empty">Memuat data cabang...</div>
+      <div class="hr-table-wrap hr-branch-table-wrap" id="hr-branch-grid">
+        <table class="hr-table hr-branch-table">
+          <thead><tr><th>No</th><th>Nama Outlet</th><th>Target GO (Grand Opening)</th><th>Tanggal Kirim</th><th>Progress</th><th>Status</th></tr></thead>
+          <tbody><tr><td colspan="6" class="hr-empty">Memuat data cabang...</td></tr></tbody>
+        </table>
       </div>
     </section>
 
@@ -107,7 +110,7 @@
           </div>
           <form id="hr-new-form" class="hr-new-form">
             <label class="hr-filter-field">Nama Outlet<input class="input" id="hr-new-name" name="namaOutlet" maxlength="150" required autocomplete="off"></label>
-            <label class="hr-filter-field">Target Opening<input class="input" id="hr-new-target" name="targetOpening" type="date"></label>
+            <label class="hr-filter-field">Target Tanggal GO (Grand Opening)<input class="input" id="hr-new-target" name="targetOpening" type="date"></label>
             <button type="submit" class="btn btn--primary" id="hr-new-submit">Daftarkan Outlet</button>
           </form>
           <div class="hr-match" id="hr-match-result" hidden aria-live="polite"></div>
@@ -135,7 +138,7 @@
 
   <script src="js/config.js?v=20261125-audit"></script>
   <script src="js/api.js?v=20261125-audit"></script>
-  <script src="js/dashboard-hr.js?v=20261125-audit"></script>
+  <script src="js/dashboard-hr.js?v=20261125-table"></script>
 </body>
 </html>
 
