@@ -3,8 +3,13 @@
  * ---------------------------------------------------------------------------
  * Dashboard HR - Monitoring Pengiriman Cabang Baru.
  *
- * Halaman ini tidak memakai login/token. Seluruh request dikirim dengan
- * opsi skipAuth karena endpoint HR bersifat publik. Tombol kembali bersifat
+ * Aturan tampilan mengikuti backend:
+ *   - Buku Panduan sudah di-dispatch  -> 50%
+ *   - Modul sudah di-dispatch         -> 50%
+ *   - Keduanya                        -> 100% dan cabang terkunci SELESAI.
+ *
+ * Halaman ini tidak memakai login/token. Seluruh request dikirim dengan opsi
+ * skipAuth karena endpoint HR bersifat publik. Tombol kembali bersifat
  * adaptif: mengikuti ?from=EPIC/GEA, sesi gudang aktif, atau disembunyikan.
  */
 
@@ -21,7 +26,7 @@
     loading: false,
     universe: [],
     viewShipments: [],
-    filters: { branch: '', entity: '', status: '' },
+    filters: { branch: '', status: '' },
     manageQuery: ''
   };
 
@@ -294,80 +299,57 @@
   }
 
   /* ------------------------------------------------------------------------
-   * Filter & agregasi
+   * Filter
    * ---------------------------------------------------------------------- */
-
-  function emptyStats() {
-    return { totalDo: 0, deliveredDo: 0, waitingDo: 0, totalQty: 0, progress: 0 };
-  }
 
   function matchesBranchName(name) {
     var query = state.filters.branch.toLowerCase();
     return !query || String(name == null ? '' : name).toLowerCase().indexOf(query) !== -1;
   }
 
-  function matchesShipment(shipment) {
-    if (!shipment) return false;
-    if (!matchesBranchName(shipment.tujuan)) return false;
-    if (state.filters.entity && shipment.entitas !== state.filters.entity) return false;
-    if (state.filters.status === 'TERKIRIM' && shipment.statusKirim !== 'DELIVERED') return false;
-    if (state.filters.status === 'DIPROSES' && shipment.statusKirim === 'DELIVERED') return false;
-    return true;
-  }
-
-  function aggregateShipments(shipments) {
-    var totals = emptyStats();
-    totals.entities = { EPIC: emptyStats(), GEA: emptyStats() };
-
-    (shipments || []).forEach(function (shipment) {
-      var delivered = shipment.statusKirim === 'DELIVERED';
-      var qty = num(shipment.totalQty);
-      var entity = totals.entities[shipment.entitas] || (totals.entities[shipment.entitas] = emptyStats());
-
-      totals.totalDo++;
-      totals.totalQty += qty;
-      entity.totalDo++;
-      entity.totalQty += qty;
-
-      if (delivered) {
-        totals.deliveredDo++;
-        entity.deliveredDo++;
-      } else {
-        totals.waitingDo++;
-        entity.waitingDo++;
-      }
-    });
-
-    totals.progress = totals.totalDo
-      ? Math.round((totals.deliveredDo / totals.totalDo) * 1000) / 10
-      : 0;
-
-    ['EPIC', 'GEA'].forEach(function (code) {
-      var entity = totals.entities[code];
-      entity.progress = entity.totalDo
-        ? Math.round((entity.deliveredDo / entity.totalDo) * 1000) / 10
-        : 0;
-    });
-
-    return totals;
-  }
-
-  function filteredShipments() {
-    var source = state.data && Array.isArray(state.data.shipments) ? state.data.shipments : [];
-    return source.filter(matchesShipment);
-  }
-
   function filteredBranches() {
     var source = state.data && Array.isArray(state.data.branches) ? state.data.branches : [];
 
     return source.filter(function (branch) {
-      return matchesBranchName(branch.Nama_Outlet_Resmi);
-    }).map(function (branch) {
-      var shipments = (branch.shipments || []).filter(matchesShipment);
-      var totals = aggregateShipments(shipments);
+      if (!matchesBranchName(branch.Nama_Outlet_Resmi)) return false;
 
-      return Object.assign({}, branch, totals, { shipments: shipments });
+      var locked = !!branch.locked || branch.Status_Monitoring === 'SELESAI';
+
+      if (state.filters.status === 'SELESAI' && !locked) return false;
+      if (state.filters.status === 'PROSES' && locked) return false;
+
+      return true;
     });
+  }
+
+  function collectShipments(branches) {
+    var shipments = [];
+
+    (branches || []).forEach(function (branch) {
+      (branch.shipments || []).forEach(function (shipment) {
+        shipments.push(shipment);
+      });
+    });
+
+    return shipments.sort(function (left, right) {
+      if (left.entitas !== right.entitas) return left.entitas < right.entitas ? -1 : 1;
+      return String(left.noDo || '').localeCompare(String(right.noDo || ''));
+    });
+  }
+
+  function computeKpis(branches) {
+    return {
+      cabangDipantau: branches.length,
+      cabangSelesai: branches.filter(function (branch) {
+        return !!branch.locked || branch.Status_Monitoring === 'SELESAI';
+      }).length,
+      menunggu: branches.filter(function (branch) {
+        return !branch.locked && branch.Status_Monitoring !== 'SELESAI';
+      }).length,
+      totalDoKelengkapan: branches.reduce(function (sum, branch) {
+        return sum + (Number(branch.totalDo) || 0);
+      }, 0)
+    };
   }
 
   /* ------------------------------------------------------------------------
@@ -375,79 +357,124 @@
    * ---------------------------------------------------------------------- */
 
   function render() {
-    renderKpis();
-    renderBranches();
-    renderShipments();
+    var branches = filteredBranches();
 
-    if (!$('hr-manage-modal') || !$('hr-manage-modal').hidden) {
+    renderKpis(branches);
+    renderBranches(branches);
+    renderShipments(branches);
+
+    if ($('hr-manage-modal') && !$('hr-manage-modal').hidden) {
       renderManageList();
     }
   }
 
-  function renderKpis() {
-    var kpi = (state.data && state.data.kpi) || {};
+  function renderKpis(branches) {
+    var kpi = computeKpis(branches);
 
-    setText('hr-kpi-branches', fmt(kpi.branches));
-    setText('hr-kpi-total-do', fmt(kpi.totalDo));
-    setText('hr-kpi-progress', pct(kpi.deliveredPct));
-    setText('hr-kpi-waiting', fmt(kpi.waitingDo));
+    setText('hr-kpi-branches', fmt(kpi.cabangDipantau));
+    setText('hr-kpi-completed', fmt(kpi.cabangSelesai));
+    setText('hr-kpi-waiting', fmt(kpi.menunggu));
+    setText('hr-kpi-total-do', fmt(kpi.totalDoKelengkapan));
   }
 
-  function statusBadge(status) {
-    var value = text(status).toUpperCase();
-
-    if (value === 'DELIVERED') return '<span class="badge badge--success">Terkirim</span>';
-    if (value === 'DISPATCHED') return '<span class="badge badge--info">Dikirim</span>';
-    return '<span class="badge badge--warning">Diproses Gudang</span>';
+  function pillarBadge(pilar) {
+    if (pilar === 'BUKU_PANDUAN') return '<span class="badge badge--accent">Buku Panduan</span>';
+    if (pilar === 'MODUL') return '<span class="badge badge--info">Modul</span>';
+    return '';
   }
 
-  function entityCard(label, stats) {
-    var data = stats || emptyStats();
+  function itemPilarBadges(item) {
+    var badges = [];
 
-    return '<div class="hr-entity">' +
-      '<span>' + esc(label) + '</span>' +
-      '<strong>' + fmt(data.totalDo) + ' DO</strong>' +
-      '<small>' + fmt(data.deliveredDo) + ' terkirim · ' + fmt(data.waitingDo) + ' menunggu</small>' +
-      '</div>';
+    if (item && item.pilarBukuPanduan) badges.push(pillarBadge('BUKU_PANDUAN'));
+    if (item && item.pilarModul) badges.push(pillarBadge('MODUL'));
+
+    return badges.join(' ');
+  }
+
+  function shipmentStatusBadge(statusKirim) {
+    var value = text(statusKirim).toUpperCase();
+
+    if (value === 'TERKIRIM') return '<span class="badge badge--success">Terkirim</span>';
+    if (value === 'DIKIRIM') return '<span class="badge badge--info">Dikirim</span>';
+
+    return '<span class="badge badge--warning">Menunggu Dispatch</span>';
+  }
+
+  function itemStatusBadge(item) {
+    var label = text(item && item.statusLabel).toUpperCase();
+
+    if (label === 'TERKIRIM') return '<span class="badge badge--success">Terkirim</span>';
+    if (label === 'DIKIRIM') return '<span class="badge badge--info">Dikirim</span>';
+
+    return '<span class="badge badge--warning">Menunggu Dispatch</span>';
+  }
+
+  function waitingLabel(branch) {
+    var buku = branch.bukuPanduan && branch.bukuPanduan.done;
+    var modul = branch.modul && branch.modul.done;
+
+    if (!buku && !modul) return 'Buku Panduan & Modul';
+    if (!buku) return 'Buku Panduan';
+    if (!modul) return 'Modul';
+    return '';
+  }
+
+  function pillarRow(label, pillar) {
+    var done = !!(pillar && pillar.done);
+    var qty = num(pillar && pillar.qty);
+    var doCount = num(pillar && pillar.doCount);
+
+    return '<div class="hr-pillar' + (done ? ' is-done' : '') + '">' +
+      '<span class="hr-pillar__mark" aria-hidden="true">' + (done ? '✓' : '○') + '</span>' +
+      '<div class="hr-pillar__text">' +
+        '<strong>' + esc(label) + '</strong>' +
+        '<small>' + (done
+          ? 'Sudah di-dispatch · ' + fmt(qty) + ' qty · ' + fmt(doCount) + ' DO'
+          : 'Menunggu dispatch') + '</small>' +
+      '</div>' +
+      '<span class="hr-pillar__points">' + (done ? '50%' : '0%') + '</span>' +
+    '</div>';
   }
 
   function branchCard(branch) {
     var progress = Math.max(0, Math.min(100, num(branch.progress)));
+    var locked = !!branch.locked || branch.Status_Monitoring === 'SELESAI';
     var target = branch.Target_Opening
       ? 'Target opening: ' + fmtDate(branch.Target_Opening)
       : 'Target opening belum ditentukan';
-    var badge = branch.Status_Monitoring === 'AKTIF'
-      ? '<span class="badge badge--success">AKTIF</span>'
-      : '<span class="badge badge--neutral">NONAKTIF</span>';
+    var footBadge;
 
-    return '<article class="hr-branch-card">' +
+    if (locked) {
+      footBadge = '<span class="badge badge--success">Lengkap 100% (Selesai)</span>';
+    } else if (progress >= 50) {
+      footBadge = '<span class="badge badge--info">50% · Menunggu ' + esc(waitingLabel(branch)) + '</span>';
+    } else {
+      footBadge = '<span class="badge badge--warning">Menunggu Dispatch Buku Panduan &amp; Modul</span>';
+    }
+
+    return '<article class="hr-branch-card' + (locked ? ' is-locked' : '') + '">' +
       '<header class="hr-branch-card__head">' +
         '<div>' +
           '<h3>' + esc(branch.Nama_Outlet_Resmi) + '</h3>' +
-          '<p class="hr-branch-card__meta">' + esc(target) + ' ' + badge + '</p>' +
+          '<p class="hr-branch-card__meta">' + esc(target) + '</p>' +
         '</div>' +
         '<strong class="hr-branch-card__pct">' + pct(progress) + '</strong>' +
       '</header>' +
-      '<div class="hr-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress + '">' +
+      '<div class="hr-progress' + (locked ? ' hr-progress--locked' : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress + '">' +
         '<span style="width:' + progress + '%"></span>' +
       '</div>' +
-      '<div class="hr-branch-card__stats">' +
-        '<span><strong>' + fmt(branch.totalDo) + '</strong> Total DO</span>' +
-        '<span><strong>' + fmt(branch.deliveredDo) + '</strong> Terkirim</span>' +
-        '<span><strong>' + fmt(branch.waitingDo) + '</strong> Menunggu</span>' +
+      '<div class="hr-pillars">' +
+        pillarRow('Buku Panduan', branch.bukuPanduan) +
+        pillarRow('Modul', branch.modul) +
       '</div>' +
-      '<div class="hr-entity-grid">' +
-        entityCard('CV EPIC', branch.entities && branch.entities.EPIC) +
-        entityCard('PT GEA', branch.entities && branch.entities.GEA) +
-      '</div>' +
+      '<div class="hr-branch-card__foot">' + footBadge + '</div>' +
     '</article>';
   }
 
-  function renderBranches() {
+  function renderBranches(branches) {
     var grid = $('hr-branch-grid');
     if (!grid) return;
-
-    var branches = filteredBranches();
 
     setText('hr-branch-count', branches.length + ' cabang');
 
@@ -460,17 +487,17 @@
     grid.innerHTML = branches.map(branchCard).join('');
   }
 
-  function renderShipments() {
+  function renderShipments(branches) {
     var body = $('hr-shipment-body');
     if (!body) return;
 
-    var shipments = filteredShipments();
+    var shipments = collectShipments(branches);
     state.viewShipments = shipments;
 
     setText('hr-shipment-count', shipments.length + ' DO');
 
     if (!shipments.length) {
-      body.innerHTML = '<tr><td colspan="9" class="hr-empty">Belum ada pengiriman yang cocok dengan filter.</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" class="hr-empty">Belum ada DO Buku Panduan / Modul yang cocok dengan filter.</td></tr>';
       return;
     }
 
@@ -478,16 +505,16 @@
       var pdf = shipment.linkPdf
         ? '<a class="link" href="' + esc(shipment.linkPdf) + '" target="_blank" rel="noopener noreferrer" data-pdf-link>Lihat PDF</a>'
         : '<span class="muted">—</span>';
+      var pillars = (shipment.pillars || []).map(pillarBadge).join(' ');
 
       return '<tr data-shipment-index="' + index + '" tabindex="0" role="button" aria-label="Buka detail ' + esc(shipment.noDo) + '">' +
         '<td><strong>' + esc(shipment.noDo) + '</strong></td>' +
         '<td>' + esc(shipment.tujuan) + '</td>' +
         '<td><span class="badge badge--' + (shipment.entitas === 'EPIC' ? 'accent' : 'info') + '">' + esc(shipment.entitas) + '</span></td>' +
         '<td>' + esc(fmtDate(shipment.tanggalOrder)) + '</td>' +
-        '<td class="num">' + fmt((shipment.items || []).length) + '</td>' +
+        '<td>' + (pillars || '<span class="muted">—</span>') + '</td>' +
         '<td class="num">' + fmt(shipment.totalQty) + '</td>' +
-        '<td>' + esc(fmtDate(shipment.tglTargetKirim)) + '</td>' +
-        '<td>' + statusBadge(shipment.statusKirim) + '</td>' +
+        '<td>' + shipmentStatusBadge(shipment.statusKirim) + '</td>' +
         '<td class="actions-cell">' + pdf + '</td>' +
       '</tr>';
     }).join('');
@@ -503,7 +530,7 @@
 
     var body = $('hr-shipment-body');
     if (body) {
-      body.innerHTML = '<tr><td colspan="9" class="hr-empty hr-empty--error">' + esc(message) + '</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" class="hr-empty hr-empty--error">' + esc(message) + '</td></tr>';
     }
 
     toast(message, 'danger');
@@ -524,8 +551,7 @@
     setText('hr-detail-meta', [
       shipment.tujuan,
       'Order ' + fmtDate(shipment.tanggalOrder),
-      'Target ' + fmtDate(shipment.tglTargetKirim),
-      'Status ' + (shipment.statusLabel || '')
+      shipment.statusLabel || ''
     ].filter(Boolean).join(' · '));
 
     var body = $('hr-detail-body');
@@ -540,12 +566,13 @@
           return '<tr>' +
             '<td><strong>' + esc(item.kodeSku) + '</strong></td>' +
             '<td>' + esc(item.namaBarang) + '</td>' +
+            '<td>' + (itemPilarBadges(item) || '<span class="muted">—</span>') + '</td>' +
             '<td class="num">' + fmt(item.qty) + '</td>' +
-            '<td>' + statusBadge(item.statusKirim) + '</td>' +
+            '<td>' + itemStatusBadge(item) + '</td>' +
             '<td class="actions-cell">' + pdf + '</td>' +
           '</tr>';
         }).join('')
-      : '<tr><td colspan="5" class="hr-empty">Tidak ada item pengiriman.</td></tr>';
+      : '<tr><td colspan="6" class="hr-empty">Tidak ada item pada snapshot pengiriman.</td></tr>';
 
     var pdfLink = $('hr-detail-pdf');
     var groupPdf = shipment.linkPdf || (items[0] && items[0].linkPdf) || '';
@@ -633,6 +660,16 @@
     }).join('');
   }
 
+  function outletStatusBadge(status) {
+    var value = text(status).toUpperCase();
+
+    if (value === 'SELESAI') return '<span class="badge badge--success">Selesai 100%</span>';
+    if (value === 'AKTIF') return '<span class="badge badge--success">Aktif</span>';
+    if (value === 'NONAKTIF') return '<span class="badge badge--danger">Nonaktif</span>';
+
+    return '<span class="badge badge--neutral">Belum dipantau</span>';
+  }
+
   function renderManageList() {
     var list = $('hr-outlet-list');
     if (!list) return;
@@ -654,21 +691,18 @@
       var name = text(item.Nama_Outlet || item.Nama_Outlet_Resmi);
       var normalized = text(item.Nama_Normalized) || normalizeOutletName(name);
       var status = text(item.Status_Monitoring).toUpperCase();
-      var active = status === 'AKTIF';
-      var badge = active
-        ? '<span class="badge badge--success">Aktif</span>'
-        : status === 'NONAKTIF'
-          ? '<span class="badge badge--danger">Nonaktif</span>'
-          : '<span class="badge badge--neutral">Belum dipantau</span>';
+      var active = status === 'AKTIF' || status === 'SELESAI';
+      var locked = status === 'SELESAI';
       var target = item.Target_Opening ? ' · Target ' + fmtDate(item.Target_Opening) : '';
 
-      return '<label class="hr-outlet-item' + (active ? ' is-active' : '') + '">' +
-        '<input type="checkbox" data-outlet-checkbox data-outlet-key="' + esc(normalized) + '"' + (active ? ' checked' : '') + '>' +
+      return '<label class="hr-outlet-item' + (active ? ' is-active' : '') + (locked ? ' is-locked' : '') + '">' +
+        '<input type="checkbox" data-outlet-checkbox data-outlet-key="' + esc(normalized) + '"' +
+          (active ? ' checked' : '') + (locked ? ' disabled' : '') + '>' +
         '<span class="hr-outlet-item__main">' +
           '<strong>' + esc(name) + '</strong>' +
           '<span class="hr-outlet-item__meta">' + sourceBadges(item.Sumber) + esc(target) + '</span>' +
         '</span>' +
-        badge +
+        outletStatusBadge(status) +
       '</label>';
     }).join('');
   }
@@ -888,17 +922,7 @@
     if (branchFilter) {
       branchFilter.addEventListener('input', function () {
         state.filters.branch = branchFilter.value;
-        renderBranches();
-        renderShipments();
-      });
-    }
-
-    var entityFilter = $('hr-filter-entity');
-    if (entityFilter) {
-      entityFilter.addEventListener('change', function () {
-        state.filters.entity = entityFilter.value;
-        renderBranches();
-        renderShipments();
+        render();
       });
     }
 
@@ -906,8 +930,7 @@
     if (statusFilter) {
       statusFilter.addEventListener('change', function () {
         state.filters.status = statusFilter.value;
-        renderBranches();
-        renderShipments();
+        render();
       });
     }
 
@@ -1030,6 +1053,7 @@
     normalizeOutletName: normalizeOutletName,
     similarity: similarity,
     findMatches: findMatches,
+    computeKpis: computeKpis,
     load: load
   };
 })(window);

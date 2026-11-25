@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0F172A">
-  <meta name="description" content="Monitoring Pengiriman Cabang Baru — HR. Pantau pengiriman outlet baru dari CV EPIC dan PT GEA.">
+  <meta name="description" content="Monitoring Pengiriman Cabang Baru — HR. Pantau kelengkapan Buku Panduan & Modul dari CV EPIC dan PT GEA.">
   <title>Monitoring Pengiriman Cabang Baru — HR</title>
   <link rel="icon" type="image/png" href="assets/favicon-anemone.png?v=20261125-anemone">
   <link rel="apple-touch-icon" href="assets/icon-anemone-192.png?v=20261125-anemone">
@@ -46,23 +46,15 @@
   <main class="hr-main">
     <section class="hr-filters" aria-label="Filter dashboard HR">
       <div class="hr-filter-field">
-        <label for="hr-filter-branch">Nama Cabang Baru</label>
-        <input class="input" id="hr-filter-branch" type="search" placeholder="Cari nama cabang…" autocomplete="off">
+        <label for="hr-filter-branch">Semua Cabang</label>
+        <input class="input" id="hr-filter-branch" type="search" placeholder="Cari nama cabang baru…" autocomplete="off">
       </div>
       <div class="hr-filter-field">
-        <label for="hr-filter-entity">Entitas Gudang</label>
-        <select class="select" id="hr-filter-entity">
-          <option value="">Semua Entitas</option>
-          <option value="EPIC">CV EPIC</option>
-          <option value="GEA">PT GEA</option>
-        </select>
-      </div>
-      <div class="hr-filter-field">
-        <label for="hr-filter-status">Status Pengiriman</label>
+        <label for="hr-filter-status">Status Kelengkapan</label>
         <select class="select" id="hr-filter-status">
           <option value="">Semua Status</option>
-          <option value="DIPROSES">Diproses Gudang</option>
-          <option value="TERKIRIM">Terkirim</option>
+          <option value="PROSES">Proses (Belum 100%)</option>
+          <option value="SELESAI">Selesai 100%</option>
         </select>
       </div>
       <div class="hr-filter-field hr-filter-field--action">
@@ -73,32 +65,32 @@
 
     <section class="hr-kpis" aria-label="Ringkasan KPI">
       <article class="hr-kpi hr-kpi--brand">
-        <span>Cabang Baru Dipantau</span>
+        <span>Cabang Dipantau</span>
         <strong id="hr-kpi-branches">—</strong>
-        <small>Outlet berstatus AKTIF di watchlist HR</small>
+        <small>Outlet AKTIF &amp; SELESAI di watchlist HR</small>
+      </article>
+      <article class="hr-kpi hr-kpi--done">
+        <span>Cabang Selesai 100%</span>
+        <strong id="hr-kpi-completed">—</strong>
+        <small>Buku Panduan &amp; Modul sudah di-dispatch</small>
       </article>
       <article class="hr-kpi">
-        <span>Total Pengiriman (DO)</span>
-        <strong id="hr-kpi-total-do">—</strong>
-        <small>Gabungan CV EPIC &amp; PT GEA</small>
-      </article>
-      <article class="hr-kpi">
-        <span>Progress Terkirim</span>
-        <strong id="hr-kpi-progress">—</strong>
-        <small>Persentase DO berstatus terkirim</small>
-      </article>
-      <article class="hr-kpi">
-        <span>Menunggu Kirim</span>
+        <span>Menunggu Buku Panduan / Modul</span>
         <strong id="hr-kpi-waiting">—</strong>
-        <small>DO yang masih diproses gudang</small>
+        <small>Cabang yang belum lengkap 100%</small>
+      </article>
+      <article class="hr-kpi">
+        <span>Total DO Kelengkapan</span>
+        <strong id="hr-kpi-total-do">—</strong>
+        <small>DO yang memuat Buku Panduan / Modul</small>
       </article>
     </section>
 
     <section class="hr-section" aria-labelledby="hr-branch-heading">
       <div class="hr-section__head">
         <div>
-          <h2 id="hr-branch-heading">Progress per Cabang Baru</h2>
-          <p class="muted">Target opening dan kontribusi pengiriman dari masing-masing gudang.</p>
+          <h2 id="hr-branch-heading">Progress Kelengkapan per Cabang Baru</h2>
+          <p class="muted">Dua pilar: Buku Panduan (50%) dan Modul (50%). Terkunci otomatis saat 100%.</p>
         </div>
         <span class="pill pill--muted" id="hr-branch-count">0 cabang</span>
       </div>
@@ -110,8 +102,8 @@
     <section class="hr-panel" aria-labelledby="hr-shipment-heading">
       <div class="hr-section__head">
         <div>
-          <h2 id="hr-shipment-heading">Rincian Pengiriman</h2>
-          <p class="muted">Klik baris untuk melihat rincian SKU dan Surat Jalan PDF.</p>
+          <h2 id="hr-shipment-heading">Rincian Pengiriman Buku Panduan &amp; Modul</h2>
+          <p class="muted">Hanya DO yang memuat item kelengkapan. Klik baris untuk melihat rincian SKU dan Surat Jalan.</p>
         </div>
         <span class="pill pill--muted" id="hr-shipment-count">0 DO</span>
       </div>
@@ -123,15 +115,14 @@
               <th>Cabang Baru</th>
               <th>Entitas</th>
               <th>Tanggal Order</th>
-              <th class="num">SKU</th>
+              <th>Pilar</th>
               <th class="num">Qty</th>
-              <th>Target Tiba</th>
               <th>Status</th>
               <th class="actions-cell">Surat Jalan</th>
             </tr>
           </thead>
           <tbody id="hr-shipment-body">
-            <tr><td colspan="9" class="hr-empty">Memuat pengiriman…</td></tr>
+            <tr><td colspan="8" class="hr-empty">Memuat pengiriman…</td></tr>
           </tbody>
         </table>
       </div>
@@ -215,13 +206,14 @@
               <tr>
                 <th>SKU</th>
                 <th>Nama Barang</th>
-                <th class="num">Qty Dikirim</th>
+                <th>Pilar</th>
+                <th class="num">Qty</th>
                 <th>Status</th>
                 <th class="actions-cell">Surat Jalan</th>
               </tr>
             </thead>
             <tbody id="hr-detail-body">
-              <tr><td colspan="5" class="hr-empty">Tidak ada item.</td></tr>
+              <tr><td colspan="6" class="hr-empty">Tidak ada item.</td></tr>
             </tbody>
           </table>
         </div>
