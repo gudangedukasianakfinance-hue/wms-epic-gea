@@ -13,11 +13,59 @@
   WMS.auth = { getSession: function () { return raw; }, getRole: function () { return role; }, handleUnauthorized: function () { global.location.replace(operationalPage()); } };
   var items = [];
   var selected = null;
+  var postLogs = [];
+  var postSku = '';
   var $ = function (id) { return document.getElementById(id); };
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
   function number(value) { return Number(value) || 0; }
   function fmt(value) { return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(number(value)); }
   function details(item) { try { var data = JSON.parse(item.Detail_JSON || '[]'); return Array.isArray(data) ? data : []; } catch (e) { return []; } }
+  function collectPostLogs(data) {
+    var logs = data && Array.isArray(data.postCountTransactions) ? data.postCountTransactions.slice() : [];
+    if (!logs.length) {
+      items.forEach(function (item) {
+        details(item).forEach(function (line) {
+          (line.postCountTransactions || []).forEach(function (log) { logs.push(log); });
+        });
+      });
+    }
+    return logs;
+  }
+  function renderPostLogs() {
+    var select = $('post-filter-sku'), body = $('post-count-body');
+    if (!select || !body) return;
+
+    var skuMap = {};
+    postLogs.forEach(function (log) { var sku = String(log.Kode_SKU || ''); if (sku) skuMap[sku] = true; });
+    select.innerHTML = '<option value="">Semua SKU</option>' + Object.keys(skuMap).sort().map(function (sku) {
+      return '<option value="' + esc(sku) + '">' + esc(sku) + '</option>';
+    }).join('');
+    if (postSku && !skuMap[postSku]) postSku = '';
+    select.value = postSku;
+
+    var shown = postSku ? postLogs.filter(function (log) { return String(log.Kode_SKU || '') === postSku; }) : postLogs;
+    var totalQty = shown.reduce(function (sum, log) { return sum + number(log.Qty); }, 0);
+    var badge = $('post-count-badge');
+    if (badge) badge.textContent = shown.length + ' transaksi' + (postSku ? ' · ' + postSku : '');
+    var summary = $('post-count-summary');
+    if (summary) summary.textContent = shown.length ? 'Total qty keluar: ' + fmt(totalQty) + ' unit' : '';
+
+    if (!shown.length) {
+      body.innerHTML = '<tr><td colspan="7" class="empty">Belum ada transaksi outbound setelah waktu hitung fisik SO.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = shown.map(function (log) {
+      var noDo = String(log.No_DO || '').trim();
+      return '<tr><td>' + esc(log.Tanggal_Transaksi || '—') + '</td>' +
+        '<td><strong>' + esc(log.ID_Outbound || '—') + '</strong>' + (noDo ? '<div class="muted">No. DO: ' + esc(noDo) + '</div>' : '') + '</td>' +
+        '<td><strong>' + esc(log.Kode_SKU || '—') + '</strong><div class="muted">' + esc(log.Nama_Barang || '') + '</div></td>' +
+        '<td>' + esc(log.Nama_Outlet || '—') + '</td>' +
+        '<td>' + esc(log.Status_Kirim || '—') + '</td>' +
+        '<td class="num"><strong>−' + fmt(log.Qty) + '</strong></td>' +
+        '<td>' + esc(log.Keterangan_Potongan || 'Dipotong dari hitungan SO berjalan') + '</td></tr>';
+    }).join('');
+  }
   function filtered() {
     return items.filter(function (item) {
       var ent = $('filter-entity').value, type = $('filter-type').value, period = $('filter-period').value, status = $('filter-status').value;
@@ -48,21 +96,32 @@
     try {
       var data = await WMS.api.request('SO_DASHBOARD_SUMMARY');
       items = data && Array.isArray(data.items) ? data.items : [];
+      postLogs = collectPostLogs(data);
       var periods = Array.from(new Set(items.map(function (x) { return x.Periode_SO; }).filter(Boolean))).sort().reverse();
       var select = $('filter-period'), previous = select.value;
       select.innerHTML = '<option value="">Semua Periode</option>' + periods.map(function (p) { return '<option value="' + esc(p) + '">' + esc(p) + '</option>'; }).join('');
       if (periods.indexOf(previous) >= 0) select.value = previous;
-      render(); $('load-state').textContent = items.length + ' sesi';
+      render(); renderPostLogs(); $('load-state').textContent = items.length + ' sesi';
     } catch (e) { $('load-state').textContent = e.message || 'Gagal memuat rekap.'; }
     finally { $('reload').disabled = false; }
   }
   function openDetail(item) {
     selected = item;
     var lines = details(item);
-    var differences = lines.filter(function (x) { return number(x.selisih) !== 0; });
+    var differences = lines.filter(function (x) { return number(x.selisih) !== 0 || number(x.qtyPickedBerjalan) > 0; });
     $('dialog-title').textContent = (item.Entitas === 'EPIC' ? 'CV EPIC' : 'PT GEA') + ' · ' + item.ID_Sesi_SO;
     $('dialog-meta').textContent = (item.Jenis_SO || 'SO') + ' · ' + (item.Periode_SO || '') + ' · ' + (item.Status_Sesi || '');
-    $('detail-body').innerHTML = differences.length ? differences.map(function (x) { return '<tr><td>' + esc(x.kodeSku) + '</td><td>' + esc(x.namaBarang) + '</td><td class="num">' + fmt(x.stokSistem) + '</td><td class="num">' + fmt(x.stokFisik) + '</td><td class="num">' + fmt(x.selisih) + '</td></tr>'; }).join('') : '<tr><td colspan="5" class="empty">Tidak ada SKU selisih.</td></tr>';
+    $('detail-body').innerHTML = differences.length ? differences.map(function (x) {
+      var picked = number(x.qtyPickedBerjalan);
+      var awal = x.stokSistemAwal !== undefined && x.stokSistemAwal !== null ? x.stokSistemAwal : x.stokSistem;
+      return '<tr><td>' + esc(x.kodeSku) + '</td><td>' + esc(x.namaBarang) + '</td>' +
+        '<td class="num">' + fmt(awal) + '</td>' +
+        '<td class="num">' + (picked > 0
+          ? '<button type="button" class="btn btn--ghost btn--sm" style="cursor:pointer" title="' + esc((x.postCountTransactions || []).map(function (log) { return [log.Tanggal_Transaksi, log.ID_Outbound, log.Kode_SKU, log.Qty].join(' · '); }).join('\n')) + '" data-post-sku="' + esc(x.kodeSku) + '">−' + fmt(picked) + '</button>'
+          : '—') + '</td>' +
+        '<td class="num">' + fmt(x.stokSistem) + '</td><td class="num">' + fmt(x.stokFisik) + '</td>' +
+        '<td class="num">' + fmt(x.selisih) + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="empty">Tidak ada SKU selisih atau potongan pasca-hitung.</td></tr>';
     var canDecide = ['SUPERVISOR','SPV','HOD'].indexOf(role) >= 0 && item.Status_Sesi === 'PENDING_APPROVAL';
     $('decision-actions').hidden = !canDecide;
     $('detail-dialog').hidden = false;
@@ -81,6 +140,16 @@
   ['filter-entity','filter-type','filter-period','filter-status'].forEach(function (id) { $(id).addEventListener('change', render); });
   $('sessions-body').addEventListener('click', function (e) { var row = e.target.closest('[data-index]'); if (row) openDetail(items[Number(row.getAttribute('data-index'))]); });
   $('dialog-close').addEventListener('click', function () { $('detail-dialog').hidden = true; });
+  $('post-filter-sku').addEventListener('change', function () { postSku = this.value || ''; renderPostLogs(); });
+  $('detail-body').addEventListener('click', function (e) {
+    var button = e.target.closest ? e.target.closest('[data-post-sku]') : null;
+    if (!button) return;
+    postSku = button.getAttribute('data-post-sku') || '';
+    renderPostLogs();
+    $('detail-dialog').hidden = true;
+    var panel = $('post-count-panel');
+    if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   $('approve').addEventListener('click', function () { decide('APPROVED'); });
   $('reject').addEventListener('click', function () { decide('REJECTED'); });
   load();

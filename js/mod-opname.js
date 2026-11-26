@@ -16,6 +16,7 @@
   var loadGen = 0;
   var SESSION_COLSPAN = 5;
   var ITEM_COLSPAN = 9;
+  var POST_COLSPAN = 7;
   var state = {
     items: [],
     drafts: [],
@@ -23,6 +24,8 @@
     sessions: [],
     selectedSession: null,
     itemFilter: '',
+    postCountLogs: [],
+    postCountFilter: '',
     stocks: [],
     progress: null,
     loaded: false,
@@ -118,6 +121,37 @@
               '<th>PIC</th><th>Status</th><th class="actions-cell">Keputusan</th>' +
             '</tr></thead>' +
             '<tbody id="opname-item-body">' + ui.tableLoadingRow(ITEM_COLSPAN, 4) + '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="card opname-detail-card" id="opname-post-card">' +
+        '<div class="card__head">' +
+          '<div>' +
+            '<h3>Log Transaksi Keluar Setelah Hitung Fisik (SO Berjalan)</h3>' +
+            '<p>Bukti transaksi outbound yang otomatis memotong Stok Sistem dan Stok Fisik pada angka monitoring SO.</p>' +
+          '</div>' +
+          '<span class="pill pill--muted" id="opname-post-count">0 transaksi</span>' +
+        '</div>' +
+        '<div class="toolbar">' +
+          '<select id="opname-post-filter" class="select select--sm" aria-label="Filter SKU log pasca-hitung">' +
+            '<option value="">Semua SKU</option>' +
+          '</select>' +
+          '<span class="toolbar__spacer"></span>' +
+          '<span class="muted" id="opname-post-summary">—</span>' +
+        '</div>' +
+        '<div class="table-wrap">' +
+          '<table class="data-table" id="opname-post-table">' +
+            '<thead><tr>' +
+              '<th>TANGGAL / WAKTU</th>' +
+              '<th>ID OUTBOUND / NO. DO</th>' +
+              '<th>SKU &amp; NAMA BARANG</th>' +
+              '<th>TUJUAN OUTLET</th>' +
+              '<th>STATUS</th>' +
+              '<th class="num">QTY KELUAR</th>' +
+              '<th>KETERANGAN POTONGAN</th>' +
+            '</tr></thead>' +
+            '<tbody id="opname-post-body">' + ui.tableEmptyRow(POST_COLSPAN, 'Belum ada transaksi outbound setelah waktu hitung fisik SO.') + '</tbody>' +
           '</table>' +
         '</div>' +
       '</div>';
@@ -258,6 +292,109 @@
     return '0';
   }
 
+  /** Badge ringkas untuk baris SO yang terkena outbound pasca-hitung. */
+  function runningBadge(item) {
+    var qty = ui.num(item && item.Qty_Picked_Berjalan);
+    if (!(qty > 0)) return '';
+
+    var awal = item.Stok_Fisik_Awal !== undefined && item.Stok_Fisik_Awal !== ''
+      ? item.Stok_Fisik_Awal : item.Stok_Sistem;
+    var text = '−' + ui.formatNumber(qty) + ' picked pasca-hitung (' +
+      ui.formatQty(awal) + ' → ' + ui.formatQty(item.Stok_Fisik) + ')';
+    var logs = Array.isArray(item.Post_Count_Transactions) ? item.Post_Count_Transactions : [];
+    var detail = logs.map(function (log) {
+      return String(log.Tanggal_Transaksi || '') + ' · ' + String(log.ID_Outbound || '') +
+        ' · ' + String(log.Kode_SKU || '') + ' · ' + ui.formatQty(log.Qty) + ' unit';
+    }).join('\n');
+
+    return '<button type="button" class="badge badge--outbound" style="cursor:pointer;margin-top:4px" ' +
+      'data-post-sku="' + ui.esc(item.Kode_SKU || '') + '" title="' + ui.esc(detail || text) + '">' +
+      ui.esc(text) + '</button>';
+  }
+
+  /**
+   * Ambil agregat log pasca-hitung dari response. Fallback: kumpulkan dari
+   * tiap item bila endpoint belum mengirim agregat.
+   */
+  function collectPostLogs(data) {
+    var logs = data && Array.isArray(data.postCountTransactions)
+      ? data.postCountTransactions.slice()
+      : [];
+
+    if (!logs.length) {
+      var seen = {};
+      state.active.concat(state.items).forEach(function (item) {
+        (item && Array.isArray(item.Post_Count_Transactions) ? item.Post_Count_Transactions : [])
+          .forEach(function (log) {
+            var key = String(log.ID_Outbound || '') + '|' + String(log.Kode_SKU || '');
+            if (!key || seen[key]) return;
+            seen[key] = true;
+            logs.push(log);
+          });
+      });
+    }
+
+    return logs;
+  }
+
+  /** Render panel audit trail transaksi outbound setelah hitung fisik. */
+  function renderPostCountLogs() {
+    var body = panel && panel.querySelector('#opname-post-body');
+    if (!body) return;
+
+    var logs = state.postCountLogs.slice();
+    var select = panel.querySelector('#opname-post-filter');
+
+    if (select) {
+      var skuMap = {};
+      logs.forEach(function (log) {
+        var sku = String(log && log.Kode_SKU || '');
+        if (sku) skuMap[sku] = true;
+      });
+      var skus = Object.keys(skuMap).sort();
+      select.innerHTML = '<option value="">Semua SKU</option>' + skus.map(function (sku) {
+        return '<option value="' + ui.esc(sku) + '">' + ui.esc(sku) + '</option>';
+      }).join('');
+
+      if (state.postCountFilter && !skuMap[state.postCountFilter]) state.postCountFilter = '';
+      select.value = state.postCountFilter;
+    }
+
+    var shown = state.postCountFilter
+      ? logs.filter(function (log) { return String(log.Kode_SKU || '') === state.postCountFilter; })
+      : logs;
+    var totalQty = shown.reduce(function (sum, log) { return sum + ui.num(log.Qty); }, 0);
+    var count = panel.querySelector('#opname-post-count');
+    if (count) {
+      count.textContent = shown.length + ' transaksi' +
+        (state.postCountFilter ? ' · ' + state.postCountFilter : '');
+    }
+    var summary = panel.querySelector('#opname-post-summary');
+    if (summary) summary.textContent = shown.length ? 'Total qty keluar: ' + ui.formatNumber(totalQty) + ' unit' : '—';
+
+    if (!shown.length) {
+      body.innerHTML = ui.tableEmptyRow(
+        POST_COLSPAN,
+        'Belum ada transaksi outbound setelah waktu hitung fisik SO.'
+      );
+      return;
+    }
+
+    body.innerHTML = shown.map(function (log) {
+      var id = ui.esc(log.ID_Outbound || '—');
+      var noDo = String(log.No_DO || '').trim();
+      return '<tr>' +
+        '<td>' + ui.esc(ui.formatDateTime(log.Tanggal_Transaksi)) + '</td>' +
+        '<td><strong>' + id + '</strong>' + (noDo ? '<div class="muted">No. DO: ' + ui.esc(noDo) + '</div>' : '') + '</td>' +
+        '<td><strong>' + ui.esc(log.Kode_SKU || '—') + '</strong><div class="muted">' + ui.esc(log.Nama_Barang || '') + '</div></td>' +
+        '<td>' + ui.esc(log.Nama_Outlet || '—') + '</td>' +
+        '<td>' + ui.badge(log.Status_Kirim || '—') + '</td>' +
+        '<td class="num"><strong>−' + ui.formatQty(log.Qty) + '</strong></td>' +
+        '<td>' + ui.esc(log.Keterangan_Potongan || 'Dipotong dari hitungan SO berjalan') + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
   function sessionStatusBadge(session) {
     if (!session.counted) {
       return '<span class="badge badge--neutral"><span class="badge__dot"></span>Belum Dihitung</span>';
@@ -362,7 +499,7 @@
         '<td>' + ui.esc(item.Kode_SKU || '—') + '</td>' +
         '<td>' + ui.esc(ui.skuLabel(item.Kode_SKU) || '—') + '</td>' +
         '<td class="num">' + ui.formatQty(item.Stok_Sistem) + '</td>' +
-        '<td class="num">' + (pending ? ui.formatQty(item.Stok_Fisik) : '—') + '</td>' +
+        '<td class="num">' + (pending ? ui.formatQty(item.Stok_Fisik) : '—') + runningBadge(item) + '</td>' +
         '<td class="num ' + diffClass(diff) + '"><strong>' + (pending ? diffLabel(diff) : '—') + '</strong></td>' +
         '<td>' + ui.esc(item.Approved_By || '—') + '</td>' +
         '<td>' + ui.badge(item.Status_SO || 'DRAFT') + '</td>' +
@@ -405,6 +542,7 @@
       state.active = data && Array.isArray(data.activeItems)
         ? data.activeItems
         : state.drafts.concat(state.items);
+      state.postCountLogs = collectPostLogs(data);
       state.loaded = true;
       state.progress = resolveProgress(data);
       buildSessions();
@@ -417,6 +555,7 @@
       setProgress(state.progress);
       renderSessions();
       renderDetail();
+      renderPostCountLogs();
     } catch (error) {
       if (gen !== loadGen) return;
       if (WMS.api.isAuthError(error)) return;
@@ -506,28 +645,50 @@
 
   function soDetail(item) {
     var diff = ui.num(item.Selisih);
+    var qtyBerjalan = ui.num(item.Qty_Picked_Berjalan);
+    var awalSistem = item.Stok_Sistem_Awal !== undefined && item.Stok_Sistem_Awal !== ''
+      ? item.Stok_Sistem_Awal : item.Stok_Sistem;
+    var awalFisik = item.Stok_Fisik_Awal !== undefined && item.Stok_Fisik_Awal !== ''
+      ? item.Stok_Fisik_Awal : item.Stok_Fisik;
+    var logs = Array.isArray(item.Post_Count_Transactions) ? item.Post_Count_Transactions : [];
+
     return '<div class="detail-grid">' +
       '<div class="detail"><span class="detail__label">ID SO</span><span class="detail__value">' + ui.esc(item.ID_SO) + '</span></div>' +
       '<div class="detail"><span class="detail__label">Tanggal SO</span><span class="detail__value">' + ui.esc(ui.formatDateTime(item.Tanggal_SO)) + '</span></div>' +
       '<div class="detail detail--full"><span class="detail__label">Kode SKU</span><span class="detail__value">' + ui.esc(item.Kode_SKU || '—') + ' · ' + ui.esc(ui.skuLabel(item.Kode_SKU) || 'Nama barang tidak ditemukan pada master') + '</span></div>' +
-      '<div class="detail"><span class="detail__label">Stok Sistem</span><span class="detail__value">' + ui.formatQty(item.Stok_Sistem) + ' unit</span></div>' +
-      '<div class="detail"><span class="detail__label">Stok Fisik</span><span class="detail__value">' + ui.formatQty(item.Stok_Fisik) + ' unit</span></div>' +
+      '<div class="detail"><span class="detail__label">Stok Sistem Awal</span><span class="detail__value">' + ui.formatQty(awalSistem) + ' unit</span></div>' +
+      '<div class="detail"><span class="detail__label">Stok Fisik Awal</span><span class="detail__value">' + ui.formatQty(awalFisik) + ' unit</span></div>' +
+      '<div class="detail"><span class="detail__label">Qty Picked Pasca-Hitung</span><span class="detail__value">' + ui.formatQty(qtyBerjalan) + ' unit</span></div>' +
+      '<div class="detail"><span class="detail__label">Stok Sistem (Berjalan)</span><span class="detail__value">' + ui.formatQty(item.Stok_Sistem) + ' unit</span></div>' +
+      '<div class="detail"><span class="detail__label">Stok Fisik (Berjalan)</span><span class="detail__value">' + ui.formatQty(item.Stok_Fisik) + ' unit</span></div>' +
       '<div class="detail"><span class="detail__label">Selisih</span><span class="detail__value ' + (diff === 0 ? '' : (diff > 0 ? 'num--pos' : 'num--neg')) + '">' + diffLabel(diff) + ' unit</span></div>' +
       '<div class="detail"><span class="detail__label">PIC</span><span class="detail__value">' + ui.esc(item.Approved_By || '—') + '</span></div>' +
       '<div class="detail"><span class="detail__label">Status</span><span class="detail__value">' + ui.badge(item.Status_SO || 'PENDING_APPROVAL') + '</span></div>' +
+      (qtyBerjalan > 0
+        ? '<div class="detail detail--full"><span class="detail__label">Log Transaksi Pasca-Hitung</span><span class="detail__value">' +
+          logs.map(function (log) {
+            return ui.esc(String(log.Tanggal_Transaksi || '') + ' · ' + String(log.ID_Outbound || '') +
+              ' · ' + String(log.Kode_SKU || '') + ' · −' + ui.formatQty(log.Qty) + ' unit');
+          }).join('<br>') + '</span></div>'
+        : '') +
     '</div>';
   }
 
   function approve(item) {
     var diff = ui.num(item.Selisih);
+    var qtyBerjalan = ui.num(item.Qty_Picked_Berjalan);
+    var catatanBerjalan = qtyBerjalan > 0
+      ? ' Nilai tersebut sudah termasuk potongan <strong>' + ui.formatNumber(qtyBerjalan) +
+        '</strong> unit dari transaksi outbound pasca-hitung.'
+      : '';
     var body = soDetail(item) +
       '<div class="confirm-panel ' + (diff === 0 ? 'confirm-panel--success' : 'confirm-panel--warning') + '">' +
         ui.ICONS.alert +
         '<span>' +
           (diff === 0
-            ? 'Stok fisik sama dengan stok sistem. Tidak ada adjustment yang diperlukan, status SO tetap menjadi <strong>APPROVED</strong>.'
-            : 'Stok_Aktif akan disetel dari <strong>' + ui.formatQty(item.Stok_Sistem) + '</strong> menjadi <strong>' + ui.formatQty(item.Stok_Fisik) + '</strong> unit' +
-              (diff !== 0 ? ', lalu selisih <strong>' + diffLabel(diff) + '</strong> dicatat sebagai <strong>ADJUSTMENT_SO</strong>.' : '.')) +
+            ? 'Stok fisik berjalan sama dengan stok sistem berjalan. Tidak ada adjustment yang diperlukan, status SO tetap menjadi <strong>APPROVED</strong>.' + catatanBerjalan
+            : 'Stok_Aktif akan disetel menjadi <strong>' + ui.formatQty(item.Stok_Fisik) + '</strong> unit' + catatanBerjalan +
+              ', lalu selisih <strong>' + diffLabel(diff) + '</strong> dicatat sebagai <strong>ADJUSTMENT_SO</strong>.') +
         '</span>' +
       '</div>';
 
@@ -692,8 +853,25 @@
       renderDetail();
     });
 
+    var postFilter = root.querySelector('#opname-post-filter');
+    if (postFilter) postFilter.addEventListener('change', function () {
+      state.postCountFilter = postFilter.value || '';
+      renderPostCountLogs();
+    });
+
     var itemBody = root.querySelector('#opname-item-body');
     if (itemBody) itemBody.addEventListener('click', function (event) {
+      var postBtn = event.target.closest ? event.target.closest('[data-post-sku]') : null;
+      if (postBtn) {
+        state.postCountFilter = postBtn.getAttribute('data-post-sku') || '';
+        renderPostCountLogs();
+        var postCard = panel && panel.querySelector('#opname-post-card');
+        if (postCard && typeof postCard.scrollIntoView === 'function') {
+          postCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        return;
+      }
+
       var approveBtn = event.target.closest ? event.target.closest('[data-approve]') : null;
       if (approveBtn) {
         var approved = findItem(approveBtn.getAttribute('data-approve'));
