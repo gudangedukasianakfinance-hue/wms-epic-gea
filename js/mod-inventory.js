@@ -39,6 +39,10 @@
     return WMS.warehouseCode === 'EPIC' ? 'GEA' : 'EPIC';
   }
 
+  function canRebuildStock() {
+    return !!(WMS.auth && typeof WMS.auth.isSoApprover === 'function' && WMS.auth.isSoApprover());
+  }
+
   function template() {
     var target = otherWarehouse();
     var sourceEntity = WMS.entity || {};
@@ -49,6 +53,10 @@
         '<div>' +
         '</div>' +
         '<div class="module-head__actions">' +
+          (canRebuildStock()
+            ? '<button type="button" class="btn btn--danger-ghost btn--sm" data-action="rebuild-stock">' +
+                ui.ICONS.lock + ' Rekonsiliasi Stok</button>'
+            : '') +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="refresh">' + ui.ICONS.refresh + ' Muat Ulang</button>' +
         '</div>' +
       '</div>' +
@@ -390,11 +398,10 @@
    * ---------------------------------------------------------------------- */
 
   function kartuSort(items) {
-    return items.slice().sort(function (a, b) {
-      var left = String(a.Tanggal || '') + '|' + String(a.ID_Mutasi || '');
-      var right = String(b.Tanggal || '') + '|' + String(b.ID_Mutasi || '');
-      return left.localeCompare(right);
-    });
+    // Backend sudah mengurutkan memakai tanggal yang diparse. Urutan string
+    // di sini akan merusaknya ("3 November" vs "25 November"), jadi pertahankan
+    // urutan respons apa adanya.
+    return (items || []).slice();
   }
 
   /**
@@ -409,8 +416,20 @@
     var noDokumen = String(item.noDokumen || '').trim();
     return [
       item.ID_Mutasi, item.Kode_SKU, referensi, namaOutlet, noDokumen,
-      item.Jenis_Transaksi, item.PIC
+      item.Jenis_Transaksi, item.PIC, item.isVirtual ? 'VIRTUAL' : ''
     ].join(' ').toLowerCase();
+  }
+
+  /**
+   * Baris virtual hanya indikator audit bagi order yang belum punya ledger.
+   * Saldonya tidak nyata, jadi tampilkan "—" alih-alih angka 0.
+   *
+   * @param {Object} item Baris Kartu_Stok.
+   * @param {*} value Nilai saldo dari backend.
+   * @return {string} Saldo tampilan.
+   */
+  function balanceOrDash(item, value) {
+    return item && item.isVirtual ? '—' : qtyOrZero(value);
   }
 
   function renderKartu() {
@@ -450,11 +469,12 @@
         '<td class="nowrap muted">' + ui.esc(ui.formatDateTime(item.Tanggal)) + '</td>' +
         '<td class="nowrap">' + ui.esc(item.Kode_SKU || '—') + '</td>' +
         '<td>' + ui.cellStack(namaOutlet || '—', subtext) + '</td>' +
-        '<td>' + ui.badge(item.Jenis_Transaksi) + '</td>' +
-        '<td class="num">' + qtyOrZero(item.Saldo_Awal) + '</td>' +
+        '<td>' + ui.badge(item.Jenis_Transaksi) +
+          (item.isVirtual ? ' ' + ui.badge('VIRTUAL') : '') + '</td>' +
+        '<td class="num">' + balanceOrDash(item, item.Saldo_Awal) + '</td>' +
         '<td class="num ' + (ui.num(item.Qty_Masuk) > 0 ? 'num--pos' : '') + '">' + qtyOrZero(item.Qty_Masuk) + '</td>' +
         '<td class="num ' + (ui.num(item.Qty_Keluar) > 0 ? 'num--neg' : '') + '">' + qtyOrZero(item.Qty_Keluar) + '</td>' +
-        '<td class="num"><strong>' + qtyOrZero(item.Saldo_Akhir) + '</strong></td>' +
+        '<td class="num"><strong>' + balanceOrDash(item, item.Saldo_Akhir) + '</strong></td>' +
         '<td class="nowrap">' + ui.esc(item.PIC || '—') + '</td>' +
       '</tr>';
     }).join('') +
@@ -831,6 +851,62 @@
     return loadStock({ silent: false });
   }
 
+  /**
+   * Ringkasan singkat hasil rebuild untuk notifikasi UI.
+   *
+   * @param {*} result Respons INVENTORY_REBUILD.
+   * @return {string} Ringkasan per gudang.
+   */
+  function rebuildSummary(result) {
+    var items = Array.isArray(result) ? result : (result ? [result] : []);
+
+    return items.map(function (item) {
+      return ui.esc(String(item.warehouse || '')) + ': ' +
+        ui.formatNumber(ui.num(item.jumlahSku)) + ' SKU';
+    }).join(', ');
+  }
+
+  function confirmRebuildStock() {
+    var warehouse = String(WMS.warehouseCode || '');
+
+    ui.confirm({
+      eyebrow: 'Inventory · Rekonsiliasi',
+      title: 'Rekonsiliasi Stok',
+      subtitle: warehouse + ' · rebuild dari log sumber',
+      size: 'sm',
+      body:
+        '<div class="confirm-panel confirm-panel--warning">' +
+          ui.ICONS.alert +
+          '<span>Proses ini <strong>menimpa</strong> <code>Kartu_Stok</code> dan <code>Stok_Gudang</code> gudang ' +
+          ui.esc(warehouse) + ' dari <code>Inbound_Log</code>, <code>Outbound_Log</code>, ' +
+          '<code>Stock_Opname</code> yang disetujui, dan <code>Transfer_Gudang</code> selesai. ' +
+          'Data lama disalin ke <code>Kartu_Stok_Backup</code> dan <code>Stok_Gudang_Backup</code> sebelum ditulis ulang.</span>' +
+        '</div>',
+      confirmLabel: 'Rebuild Sekarang',
+      cancelLabel: 'Batal',
+      confirmClass: 'btn--danger',
+      busyLabel: 'Merekonsiliasi stok…',
+      onConfirm: async function () {
+        var result = await WMS.api.request('INVENTORY_REBUILD', {}, { timeout: 180000 });
+        var summary = rebuildSummary(result);
+
+        if (WMS.touch) WMS.touch('inventory');
+        if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
+
+        state.stockLoaded = false;
+        state.kartuLoaded = false;
+        await refreshCurrent();
+
+        ui.toast(
+          (summary ? summary + '. ' : '') + 'Saldo dihitung ulang dari log sumber.',
+          'success',
+          'Rekonsiliasi Stok'
+        );
+        return true;
+      }
+    });
+  }
+
   function mount(root) {
     panel = root;
     root.innerHTML = template();
@@ -894,6 +970,9 @@
 
     var refreshButton = root.querySelector('[data-action="refresh"]');
     if (refreshButton) refreshButton.addEventListener('click', refreshCurrent);
+
+    var rebuildButton = root.querySelector('[data-action="rebuild-stock"]');
+    if (rebuildButton) rebuildButton.addEventListener('click', confirmRebuildStock);
 
     var kartuSelect = root.querySelector('#kartu-sku');
     if (kartuSelect) {
