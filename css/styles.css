@@ -626,9 +626,19 @@ body[data-warehouse="EPIC"] {
   color: var(--theme-text);
   white-space: nowrap;
 }
+.data-table .center { text-align: center; }
 .data-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .data-table .num--pos { color: var(--success); font-weight: 600; }
 .data-table .num--neg { color: var(--danger); font-weight: 600; }
+.data-table .num--karantina { color: var(--danger); font-weight: 600; }
+
+/* Badge status Rincian Stok: kontras tinggi pada tema terang dan gelap. */
+.stock-status--tersedia { border-color: #6ee7b7; color: #047857; background: #ecfdf5; }
+.stock-status--karantina { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; }
+.stock-status--menipis { border-color: #fde047; color: #a16207; background: #fefce8; }
+[data-theme="dark"] .stock-status--tersedia { border-color: #047857; color: #6ee7b7; background: #052e24; }
+[data-theme="dark"] .stock-status--karantina { border-color: #b91c1c; color: #fca5a5; background: #3f1212; }
+[data-theme="dark"] .stock-status--menipis { border-color: #a16207; color: #fde047; background: #3b2d05; }
 
 /* --- Status Tabs --- */
 .status-tabs {

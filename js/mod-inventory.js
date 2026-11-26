@@ -10,7 +10,7 @@
   if (!WMS || !WMS.registerModule) return;
 
   var ui = WMS.ui;
-  var STOCK_COLSPAN = 9; // 3 kolom stok + 1 kolom status + 1 kolom last update + leftover
+  var STOCK_COLSPAN = 8;
   var KARTU_COLSPAN = 9;
   var state = {
     sub: 'stock',
@@ -102,9 +102,9 @@
           '<div class="table-wrap">' +
             '<table class="data-table" id="stock-table">' +
               '<thead><tr>' +
-                '<th>SKU</th><th>Nama Barang (A–Z)</th><th>Lokasi Rak</th>' +
-                '<th class="num">Stok Aktif</th><th class="num">Stok Karantina</th>' +
-                '<th>Status</th><th>Pembaruan Terakhir</th>' +
+                '<th>SKU</th><th>NAMA BARANG (A–Z)</th><th class="center">LOKASI RAK</th>' +
+                '<th class="num">STOK AKTIF</th><th class="num">STOK KARANTINA</th>' +
+                '<th class="num">TOTAL STOK</th><th class="center">STATUS</th><th class="num nowrap">PEMBARUAN TERAKHIR</th>' +
               '</tr></thead>' +
               '<tbody id="stock-body">' + ui.tableLoadingRow(STOCK_COLSPAN, 5) + '</tbody>' +
             '</table>' +
@@ -129,9 +129,9 @@
           '<div class="table-wrap">' +
             '<table class="data-table" id="kartu-table">' +
               '<thead><tr>' +
-                '<th>Tanggal</th><th>SKU</th><th>Nama Outlet / Keterangan</th><th>Jenis</th>' +
-                '<th class="num">Saldo Awal</th><th class="num">Masuk</th><th class="num">Keluar</th>' +
-                '<th class="num">Saldo Akhir</th><th>PIC</th>' +
+                '<th class="nowrap">TANGGAL</th><th>SKU</th><th>NAMA OUTLET / KETERANGAN</th><th>JENIS</th>' +
+                '<th class="num">SALDO AWAL</th><th class="num">MASUK</th><th class="num">KELUAR</th>' +
+                '<th class="num">SALDO AKHIR</th><th>PIC</th>' +
               '</tr></thead>' +
               '<tbody id="kartu-body">' + ui.tableLoadingRow(KARTU_COLSPAN, 4) + '</tbody>' +
             '</table>' +
@@ -212,6 +212,18 @@
     if (karantina > 0) return 'KARANTINA';
     var threshold = (WMS.config && WMS.config.LOW_STOCK_THRESHOLD) || 10;
     return ui.num(item.Stok_Aktif) <= threshold ? 'MENIPIS' : 'TERSEDIA';
+  }
+
+  /**
+   * Format angka kartu stok. Sel saldo kosong dari sheet lama harus tampil 0,
+   * bukan em-dash, agar saldo selalu terbaca sebagai angka.
+   *
+   * @param {*} value Nilai sel.
+   * @return {string} Angka terformat.
+   */
+  function qtyOrZero(value) {
+    var empty = value === null || value === undefined || String(value).trim() === '';
+    return ui.formatQty(empty ? 0 : value);
   }
 
   function compareStockRows(a, b) {
@@ -316,17 +328,16 @@
       var stokKarantina = Number(item.Stok_Karantina || 0);
       var totalStok = stokAktif + stokKarantina;
       var karantinaClass = stokKarantina > 0 ? 'num--karantina' : '';
-      var karantinaText = ui.formatQty(stokKarantina);
 
       return '<tr data-row data-kartu-sku="' + ui.esc(kodeSku) + '" data-status="' + ui.esc(status) + '" data-search="' + ui.esc(search) + '">' +
         '<td class="nowrap">' + ui.esc(kodeSku || '—') + '</td>' +
         '<td>' + namaCell + '</td>' +
         '<td class="nowrap"><code>' + ui.esc(item.Lokasi_Rak || '—') + '</code></td>' +
-        '<td class="num">' + ui.formatQty(stokAktif) + '</td>' +
-        '<td class="num ' + karantinaClass + '">' + karantinaText + '</td>' +
-        '<td class="num" style="font-weight: 700;">' + ui.formatQty(totalStok) + '</td>' +
-        '<td>' + ui.badge(status) + '</td>' +
-        '<td class="nowrap muted">' + ui.esc(ui.formatDateTime(item.Last_Update)) + '</td>' +
+        '<td class="num">' + qtyOrZero(stokAktif) + '</td>' +
+        '<td class="num ' + karantinaClass + '">' + qtyOrZero(stokKarantina) + '</td>' +
+        '<td class="num"><strong>' + qtyOrZero(totalStok) + '</strong></td>' +
+        '<td class="center"><span class="pill pill--neutral stock-status stock-status--' + status.toLowerCase() + '">' + ui.esc(status) + '</span></td>' +
+        '<td class="num nowrap muted">' + ui.esc(ui.formatDateTime(item.Last_Update)) + '</td>' +
       '</tr>';
     }).join('') +
       ui.showMoreRow(STOCK_COLSPAN, visible.length, filtered.length, 'SKU') +
@@ -440,10 +451,10 @@
         '<td class="nowrap">' + ui.esc(item.Kode_SKU || '—') + '</td>' +
         '<td>' + ui.cellStack(namaOutlet || '—', subtext) + '</td>' +
         '<td>' + ui.badge(item.Jenis_Transaksi) + '</td>' +
-        '<td class="num">' + ui.formatQty(item.Saldo_Awal) + '</td>' +
-        '<td class="num ' + (ui.num(item.Qty_Masuk) > 0 ? 'num--pos' : '') + '">' + ui.formatQty(item.Qty_Masuk) + '</td>' +
-        '<td class="num ' + (ui.num(item.Qty_Keluar) > 0 ? 'num--neg' : '') + '">' + ui.formatQty(item.Qty_Keluar) + '</td>' +
-        '<td class="num"><strong>' + ui.formatQty(item.Saldo_Akhir) + '</strong></td>' +
+        '<td class="num">' + qtyOrZero(item.Saldo_Awal) + '</td>' +
+        '<td class="num ' + (ui.num(item.Qty_Masuk) > 0 ? 'num--pos' : '') + '">' + qtyOrZero(item.Qty_Masuk) + '</td>' +
+        '<td class="num ' + (ui.num(item.Qty_Keluar) > 0 ? 'num--neg' : '') + '">' + qtyOrZero(item.Qty_Keluar) + '</td>' +
+        '<td class="num"><strong>' + qtyOrZero(item.Saldo_Akhir) + '</strong></td>' +
         '<td class="nowrap">' + ui.esc(item.PIC || '—') + '</td>' +
       '</tr>';
     }).join('') +

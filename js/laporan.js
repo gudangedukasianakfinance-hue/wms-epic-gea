@@ -20,13 +20,14 @@ WMS.laporan.loadArchiveList = function() {
   }
   
   // Ambil entitas aktif dari URL parameter atau sesi
-  var urlParams = new URLSearchParams(global.location.search);
+  var urlParams = new URLSearchParams(window.location.search);
   var dariUrl = urlParams.get('from');
   var entitasAktif = dariUrl === 'EPIC' ? 'EPIC' : (dariUrl === 'GEA' ? 'GEA' : 
     (session && session.user && session.user.aksesGudang === 'ALL' ? 'EPIC' : 'GEA'));
   
   // Panggil endpoint ARCHIVE_LIST
-  WMS.api ? WMS.api.request('ARCHIVE_LIST', { entity: entitasAktif })
+  if (!WMS || !WMS.api) return;
+  WMS.api.request('ARCHIVE_LIST', { entity: entitasAktif })
     .then(function(res) {
       var archiveList = res && res.data ? res.data : (res ? [res] : []);
       var periodeSelect = document.getElementById('laporan-periode');
@@ -124,7 +125,11 @@ WMS.laporan.muatData = function(archiveId, forceFromApi) {
   };
   
   // Coba panggil API REPORT_DATA (jika ada di backend-gas) atau gunakan data simulasi
-  WMS.api ? WMS.api.request('REPORT_DATA', payload)
+  if (!WMS || !WMS.api) {
+    WMS.laporan.prosesDataStatik(payload.type, archiveId);
+    return;
+  }
+  WMS.api.request('REPORT_DATA', payload)
     .then(function(res) {
       WMS.laporan.prosesDataRes(res, archiveId);
     })
@@ -334,18 +339,3 @@ document.addEventListener('DOMContentLoaded', function() {
     periodeSelect.addEventListener('change', WMS.laporan.tampilkanPratinjau);
   }
 });
-`;
-
-/* Simpan file yang sudah diedit */
-var oldContent = fs.readFileSync('C:\\Users\\user\\wms-epic-gea\\frontend-github\\js\\laporan.js', 'utf8');
-if (oldContent.includes('// Init: Load archive list')) {
-  console.log('Archive functions already present in laporan.js');
-} else {
-  // Append new functions before the closing of the IIFE
-  var newContent = oldContent.replace(
-    '});// End of IIFE', 
-    `}\n` + archiveFunctions + `\n});// End of IIFE`
-  );
-  fs.writeFileSync('C:\\Users\\user\\wms-epic-gea\\frontend-github\\js\\laporan.js', newContent);
-  console.log('Archive functions appended to laporan.js successfully');
-}

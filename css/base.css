@@ -864,6 +864,9 @@ body.auth-gate {
 .pill--pending { border-color: #fde047; color: #a16207; background: #fefce8; }
 .pill--rejected { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; }
 .pill--neutral { border-color: #cbd5e1; color: #334155; background: #f8fafc; }
+.stock-status--tersedia { border-color: #6ee7b7; color: #047857; background: #ecfdf5; }
+.stock-status--karantina { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; }
+.stock-status--menipis { border-color: #fde047; color: #a16207; background: #fefce8; }
 
 /* --- Status pills — Dark mode */
 [data-theme="dark"] .pill--outbound {
@@ -1387,6 +1390,10 @@ body.auth-gate {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.data-table .center {
+  text-align: center;
 }
 
 .data-table .num--pos {
