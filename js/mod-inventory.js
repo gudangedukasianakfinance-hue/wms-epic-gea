@@ -880,7 +880,7 @@
           '<span>Proses ini <strong>menimpa</strong> <code>Kartu_Stok</code> dan <code>Stok_Gudang</code> gudang ' +
           ui.esc(warehouse) + ' dari <code>Inbound_Log</code>, <code>Outbound_Log</code>, ' +
           '<code>Stock_Opname</code> yang disetujui, dan <code>Transfer_Gudang</code> selesai. ' +
-          'Data lama disalin ke <code>Kartu_Stok_Backup</code> dan <code>Stok_Gudang_Backup</code> sebelum ditulis ulang.</span>' +
+          'Saldo dihitung ulang dari log sumber tanpa membuat tab backup.</span>' +
         '</div>',
       confirmLabel: 'Rebuild Sekarang',
       cancelLabel: 'Batal',
