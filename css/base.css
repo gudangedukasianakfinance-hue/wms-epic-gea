@@ -1394,6 +1394,11 @@ body.auth-gate {
   font-weight: 600;
 }
 
+.data-table .num--karantina {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .data-table .num--neg {
   color: var(--danger);
   font-weight: 600;

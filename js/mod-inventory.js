@@ -10,7 +10,7 @@
   if (!WMS || !WMS.registerModule) return;
 
   var ui = WMS.ui;
-  var STOCK_COLSPAN = 7;
+  var STOCK_COLSPAN = 9; // 3 kolom stok + 1 kolom status + 1 kolom last update + leftover
   var KARTU_COLSPAN = 9;
   var state = {
     sub: 'stock',
@@ -312,12 +312,19 @@
           '</button>'
         : ui.esc(namaBarang || '—');
 
+      var stokAktif = Number(item.Stok_Aktif || 0);
+      var stokKarantina = Number(item.Stok_Karantina || 0);
+      var totalStok = stokAktif + stokKarantina;
+      var karantinaClass = stokKarantina > 0 ? 'num--karantina' : '';
+      var karantinaText = ui.formatQty(stokKarantina);
+
       return '<tr data-row data-kartu-sku="' + ui.esc(kodeSku) + '" data-status="' + ui.esc(status) + '" data-search="' + ui.esc(search) + '">' +
         '<td class="nowrap">' + ui.esc(kodeSku || '—') + '</td>' +
         '<td>' + namaCell + '</td>' +
         '<td class="nowrap"><code>' + ui.esc(item.Lokasi_Rak || '—') + '</code></td>' +
-        '<td class="num">' + ui.formatQty(item.Stok_Aktif) + '</td>' +
-        '<td class="num ' + (ui.num(item.Stok_Karantina) > 0 ? 'num--neg' : '') + '">' + ui.formatQty(item.Stok_Karantina) + '</td>' +
+        '<td class="num">' + ui.formatQty(stokAktif) + '</td>' +
+        '<td class="num ' + karantinaClass + '">' + karantinaText + '</td>' +
+        '<td class="num" style="font-weight: 700;">' + ui.formatQty(totalStok) + '</td>' +
         '<td>' + ui.badge(status) + '</td>' +
         '<td class="nowrap muted">' + ui.esc(ui.formatDateTime(item.Last_Update)) + '</td>' +
       '</tr>';
