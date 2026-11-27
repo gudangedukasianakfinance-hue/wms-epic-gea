@@ -159,6 +159,10 @@
       button.textContent = open ? 'Tutup Rincian' : 'Lihat Rincian';
     });
   }
+  function canCancelSession(item) {
+    var status = String(item && item.Status_Sesi || '').toUpperCase();
+    return ['DRAFT', 'PENDING_APPROVAL', 'SUBMITTED', 'OPEN', 'PENDING'].indexOf(status) >= 0;
+  }
   function filtered() {
     return items.filter(function (item) {
       var ent = $('filter-entity').value, type = $('filter-type').value, period = $('filter-period').value, status = $('filter-status').value;
@@ -181,8 +185,12 @@
       $('compare-' + entity.toLowerCase()).innerHTML = '<strong>' + accuracy.toFixed(1) + '%</strong><span>Akurasi · ' + fmt(group.reduce(function (sum, r) { return sum + number(r.Total_SKU_Selisih); }, 0)) + ' SKU selisih</span><i style="width:' + Math.min(100, accuracy) + '%"></i>';
     });
     $('sessions-body').innerHTML = rows.length ? rows.map(function (r, i) {
-      return '<tr data-index="' + items.indexOf(r) + '"><td>' + esc(r.Entitas === 'EPIC' ? 'CV EPIC' : 'PT GEA') + '</td><td>' + esc(r.Jenis_SO || '—') + '</td><td>' + esc(r.Periode_SO || '—') + '</td><td>' + esc(r.Tanggal_SO || '—') + '</td><td class="num">' + fmt(r.Total_SKU_Dihitung) + '</td><td class="num">' + fmt(r.Total_SKU_Selisih) + '</td><td>' + Number(r.Akurasi_Persen || 0).toFixed(1) + '%</td><td><span class="so-status so-status--' + esc(String(r.Status_Sesi || '').toLowerCase()) + '">' + esc(r.Status_Sesi || '—') + '</span></td></tr>';
-    }).join('') : '<tr><td colspan="8" class="empty">Tidak ada sesi sesuai filter.</td></tr>';
+      var index = items.indexOf(r);
+      return '<tr data-index="' + index + '"><td>' + esc(r.Entitas === 'EPIC' ? 'CV EPIC' : 'PT GEA') + '</td><td>' + esc(r.Jenis_SO || '—') + '</td><td>' + esc(r.Periode_SO || '—') + '</td><td>' + esc(r.Tanggal_SO || '—') + '</td><td class="num">' + fmt(r.Total_SKU_Dihitung) + '</td><td class="num">' + fmt(r.Total_SKU_Selisih) + '</td><td>' + Number(r.Akurasi_Persen || 0).toFixed(1) + '%</td><td><span class="so-status so-status--' + esc(String(r.Status_Sesi || '').toLowerCase()) + '">' + esc(r.Status_Sesi || '—') + '</span></td>' +
+        '<td class="actions-cell">' + (canCancelSession(r)
+          ? '<button type="button" class="btn btn--danger-ghost btn--sm" data-cancel-session="' + index + '">Batalkan Perintah</button>'
+          : '—') + '</td></tr>';
+    }).join('') : '<tr><td colspan="9" class="empty">Tidak ada sesi sesuai filter.</td></tr>';
   }
   async function load() {
     $('reload').disabled = true; $('load-state').textContent = 'Memuat data terbaru…';
@@ -227,6 +235,25 @@
     } catch (e) { global.alert(e.message || 'Keputusan gagal disimpan.'); }
     finally { buttons.forEach(function (b) { b.disabled = false; }); }
   }
+  async function cancelSession(index) {
+    var item = items[Number(index)];
+    if (!item || !canCancelSession(item)) return;
+    var message = 'Batalkan perintah SO ' + item.ID_Sesi_SO + ' (' + item.Entitas + ')?\n\n' +
+      'Status sesi menjadi CANCELLED. Stok gudang tidak diubah dan perintah baru untuk SKU/periode yang sama dapat dibuat ulang.';
+    if (!global.confirm(message)) return;
+    var alasan = typeof global.prompt === 'function'
+      ? (global.prompt('Alasan pembatalan (opsional):', '') || '') : '';
+    try {
+      await WMS.api.request('CANCEL_OPNAME', {
+        idSesiSo: item.ID_Sesi_SO,
+        alasan: String(alasan).trim()
+      });
+      await load();
+      $('load-state').textContent = 'Perintah SO ' + item.ID_Sesi_SO + ' dibatalkan.';
+    } catch (e) {
+      global.alert(e.message || 'Pembatalan perintah SO gagal.');
+    }
+  }
   $('reload').addEventListener('click', load);
   $('back').href = operationalPage();
   ['filter-entity','filter-type','filter-period','filter-status'].forEach(function (id) {
@@ -235,7 +262,16 @@
       if (id === 'filter-entity') renderPostLogs();
     });
   });
-  $('sessions-body').addEventListener('click', function (e) { var row = e.target.closest('[data-index]'); if (row) openDetail(items[Number(row.getAttribute('data-index'))]); });
+  $('sessions-body').addEventListener('click', function (e) {
+    var cancelBtn = e.target.closest ? e.target.closest('[data-cancel-session]') : null;
+    if (cancelBtn) {
+      e.stopPropagation();
+      cancelSession(cancelBtn.getAttribute('data-cancel-session'));
+      return;
+    }
+    var row = e.target.closest('[data-index]');
+    if (row) openDetail(items[Number(row.getAttribute('data-index'))]);
+  });
   $('dialog-close').addEventListener('click', function () { $('detail-dialog').hidden = true; });
   $('post-filter-sku').addEventListener('change', function () { postSku = this.value || ''; renderPostLogs(); });
   $('post-count-groups').addEventListener('click', function (e) {

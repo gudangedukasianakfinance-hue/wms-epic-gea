@@ -183,6 +183,13 @@
     return String(item && item.Status_SO != null ? item.Status_SO : '').toUpperCase() === 'PENDING_APPROVAL';
   }
 
+  var CANCELLABLE_STATUSES = ['DRAFT', 'SUBMITTED', 'OPEN', 'PENDING', 'PENDING_APPROVAL'];
+
+  function canCancel(item) {
+    var status = String(item && item.Status_SO != null ? item.Status_SO : '').toUpperCase();
+    return CANCELLABLE_STATUSES.indexOf(status) !== -1;
+  }
+
   function buildSessions() {
     var map = {};
     var order = [];
@@ -501,6 +508,9 @@
         '<td class="actions-cell">' +
           '<div class="btn-row" style="justify-content:flex-end">' +
             '<button type="button" class="btn btn--ghost btn--sm" data-open-session="' + ui.esc(session.key) + '">Buka Daftar Item</button>' +
+            (session.items.some(canCancel)
+              ? '<button type="button" class="btn btn--danger-ghost btn--sm" data-cancel-session="' + ui.esc(session.key) + '">Batalkan Perintah</button>'
+              : '') +
           '</div>' +
         '</td>' +
       '</tr>';
@@ -566,12 +576,15 @@
         '<td>' + ui.esc(item.Approved_By || '—') + '</td>' +
         '<td>' + ui.badge(item.Status_SO || 'DRAFT') + '</td>' +
         '<td class="actions-cell">' +
-          (pending
-            ? '<div class="btn-row" style="justify-content:flex-end">' +
-                '<button type="button" class="btn btn--primary btn--sm" data-approve="' + idSo + '">Approve</button>' +
-                '<button type="button" class="btn btn--danger-ghost btn--sm" data-reject="' + idSo + '">Reject</button>' +
-              '</div>'
-            : '<span class="muted">Menunggu hitung</span>') +
+          '<div class="btn-row" style="justify-content:flex-end">' +
+            (pending
+              ? '<button type="button" class="btn btn--primary btn--sm" data-approve="' + idSo + '">Approve</button>' +
+                '<button type="button" class="btn btn--danger-ghost btn--sm" data-reject="' + idSo + '">Reject</button>'
+              : '<span class="muted">Menunggu hitung</span>') +
+            (canCancel(item)
+              ? '<button type="button" class="btn btn--danger-ghost btn--sm" data-cancel-item="' + idSo + '">Batalkan</button>'
+              : '') +
+          '</div>' +
         '</td>' +
       '</tr>';
     }).join('');
@@ -674,7 +687,8 @@
   }
 
   function findItem(id) {
-    return state.items.find(function (item) {
+    var all = state.items.concat(state.drafts, state.active);
+    return all.find(function (item) {
       return String(item.ID_SO) === String(id);
     }) || null;
   }
@@ -744,6 +758,61 @@
           }).join('<br>') + '</span></div>'
         : '') +
     '</div>';
+  }
+
+  /**
+   * Dialog pembatalan perintah SO. Menerima sesi (seluruh item) maupun satu
+   * item. Stok gudang tidak diubah dan daftar stok dimuat ulang agar perintah
+   * baru untuk SKU/periode yang sama langsung bisa dibuat.
+   */
+  function cancelOrder(target) {
+    var session = target && Array.isArray(target.items) ? target : null;
+    var item = session ? null : target;
+    var items = session ? session.items.filter(canCancel) : [item];
+    if (!items.length) return;
+
+    var label = session
+      ? ui.formatDate(session.tanggalSo) + ' · ' + items.length + ' item'
+      : (item.ID_SO + ' · ' + item.Kode_SKU);
+    var body = soDetail(session ? items[0] : item) +
+      '<div class="confirm-panel confirm-panel--danger">' +
+        ui.ICONS.alert +
+        '<span>Perintah SO ini akan berstatus <strong>CANCELLED</strong>. <strong>Stok gudang tidak berubah</strong> dan tidak ada mutasi Kartu Stok. Setelah dibatalkan, perintah SO baru untuk SKU dan periode yang sama dapat dibuat kembali.</span>' +
+      '</div>' +
+      '<div class="field" style="margin-top:14px"><label for="opname-cancel-reason">Alasan pembatalan (opsional)</label>' +
+        '<input class="input" id="opname-cancel-reason" type="text" maxlength="200" placeholder="Contoh: perintah duplikat / hitung ulang"></div>';
+
+    ui.confirm({
+      eyebrow: 'Stock Opname · Pembatalan',
+      title: 'Batalkan Perintah SO',
+      subtitle: label,
+      body: body,
+      confirmLabel: 'Batalkan Perintah',
+      cancelLabel: 'Tutup',
+      confirmClass: 'btn--danger',
+      busyLabel: 'Membatalkan perintah…',
+      onConfirm: async function () {
+        var input = document.getElementById('opname-cancel-reason');
+        var alasan = input ? String(input.value || '').trim() : '';
+        var payload = { alasan: alasan };
+        if (session) payload.idSoList = items.map(function (entry) { return entry.ID_SO; });
+        else payload.idSo = item.ID_SO;
+
+        var result = await WMS.api.request('CANCEL_OPNAME', payload);
+        if (WMS.master && WMS.master.invalidate) WMS.master.invalidate();
+        state.stocks = [];
+        await load({ silent: true });
+        try {
+          await loadStockOptions();
+          renderSessions();
+          renderDetail();
+        } catch (error) { /* daftar stok tetap opsional */ }
+
+        ui.toast('Perintah SO berhasil dibatalkan (' + (result && result.cancelledCount || items.length) + ' item). Stok gudang tidak diubah.',
+          'success', 'Perintah dibatalkan');
+        return true;
+      }
+    });
   }
 
   function approve(item) {
@@ -903,12 +972,21 @@
     var sessionBody = root.querySelector('#opname-session-body');
     if (sessionBody) {
       sessionBody.addEventListener('click', function (event) {
+        var cancelBtn = event.target.closest ? event.target.closest('[data-cancel-session]') : null;
+        if (cancelBtn) {
+          event.stopPropagation();
+          var cancelled = findSession(cancelBtn.getAttribute('data-cancel-session'));
+          if (cancelled) cancelOrder(cancelled);
+          return;
+        }
+
         var row = event.target.closest ? event.target.closest('[data-session]') : null;
         if (row) openSession(row.getAttribute('data-session'));
       });
 
       sessionBody.addEventListener('keydown', function (event) {
         if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+        if (event.target.closest && event.target.closest('button')) return;
         var row = event.target.closest ? event.target.closest('[data-session]') : null;
         if (!row) return;
         event.preventDefault();
@@ -941,6 +1019,13 @@
         if (postCard && typeof postCard.scrollIntoView === 'function') {
           postCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+        return;
+      }
+
+      var cancelBtn = event.target.closest ? event.target.closest('[data-cancel-item]') : null;
+      if (cancelBtn) {
+        var cancelledItem = findItem(cancelBtn.getAttribute('data-cancel-item'));
+        if (cancelledItem) cancelOrder(cancelledItem);
         return;
       }
 
