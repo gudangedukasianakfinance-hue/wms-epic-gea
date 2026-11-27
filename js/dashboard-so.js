@@ -108,20 +108,19 @@
   function openDetail(item) {
     selected = item;
     var lines = details(item);
-    var differences = lines.filter(function (x) { return number(x.selisih) !== 0 || number(x.qtyPickedBerjalan) > 0; });
     $('dialog-title').textContent = (item.Entitas === 'EPIC' ? 'CV EPIC' : 'PT GEA') + ' · ' + item.ID_Sesi_SO;
     $('dialog-meta').textContent = (item.Jenis_SO || 'SO') + ' · ' + (item.Periode_SO || '') + ' · ' + (item.Status_Sesi || '');
-    $('detail-body').innerHTML = differences.length ? differences.map(function (x) {
+    $('detail-body').innerHTML = lines.length ? lines.map(function (x) {
       var picked = number(x.qtyPickedBerjalan);
       var awal = x.stokSistemAwal !== undefined && x.stokSistemAwal !== null ? x.stokSistemAwal : x.stokSistem;
-      return '<tr><td>' + esc(x.kodeSku) + '</td><td>' + esc(x.namaBarang) + '</td>' +
+      return '<tr><td>' + esc(x.kodeSku) + '</td><td>' + esc(x.namaBarang || x.kodeSku || '—') + '</td>' +
         '<td class="num">' + fmt(awal) + '</td>' +
         '<td class="num">' + (picked > 0
           ? '<button type="button" class="btn btn--ghost btn--sm" style="cursor:pointer" title="' + esc((x.postCountTransactions || []).map(function (log) { return [log.Tanggal_Transaksi, log.ID_Outbound, log.Kode_SKU, log.Qty].join(' · '); }).join('\n')) + '" data-post-sku="' + esc(x.kodeSku) + '">−' + fmt(picked) + '</button>'
           : '—') + '</td>' +
         '<td class="num">' + fmt(x.stokSistem) + '</td><td class="num">' + fmt(x.stokFisik) + '</td>' +
         '<td class="num">' + fmt(x.selisih) + '</td></tr>';
-    }).join('') : '<tr><td colspan="7" class="empty">Tidak ada SKU selisih atau potongan pasca-hitung.</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="empty">Tidak ada item pada sesi SO ini.</td></tr>';
     var canDecide = ['SUPERVISOR','SPV','HOD'].indexOf(role) >= 0 && item.Status_Sesi === 'PENDING_APPROVAL';
     $('decision-actions').hidden = !canDecide;
     $('detail-dialog').hidden = false;

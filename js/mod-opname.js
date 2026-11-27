@@ -292,6 +292,68 @@
     return '0';
   }
 
+  /** True bila nama barang masih kosong atau placeholder dari AppSheet. */
+  function isMissingItemName(value) {
+    var text = String(value == null ? '' : value).trim();
+    if (!text) return true;
+    return ['—', '–', '-', 'N/A', 'NA', 'NULL', 'UNDEFINED'].indexOf(text.toUpperCase()) !== -1;
+  }
+
+  /**
+   * Nama barang untuk tampilan SO. Prioritas: field Nama_Barang dari backend,
+   * cache master lokal, cache stok gudang, lalu ui.skuLabel. Dengan demikian
+   * selama Kode_SKU terdaftar di master, kolom nama tidak pernah kosong.
+   */
+  function itemName(item) {
+    if (!item) return '';
+
+    var name = String(item.Nama_Barang == null ? '' : item.Nama_Barang).trim();
+    if (!isMissingItemName(name)) return name;
+
+    var key = String(item.Kode_SKU == null ? '' : item.Kode_SKU).trim();
+    if (!key) return '';
+
+    var master = WMS.master && typeof WMS.master.find === 'function' ? WMS.master.find(key) : null;
+    if (master) {
+      name = String(master.Nama_Barang == null ? '' : master.Nama_Barang).trim();
+      if (!isMissingItemName(name)) return name;
+    }
+
+    var stock = state.stocks.find(function (row) {
+      return String(row && row.Kode_SKU || '').trim().toUpperCase() === key.toUpperCase();
+    });
+    if (stock) {
+      name = String(stock.Nama_Barang == null ? '' : stock.Nama_Barang).trim();
+      if (!isMissingItemName(name)) return name;
+    }
+
+    if (ui && typeof ui.skuLabel === 'function') {
+      name = String(ui.skuLabel(key) || '').trim();
+      if (!isMissingItemName(name)) return name;
+    }
+
+    return '';
+  }
+
+  /** Ringkasan nama barang unik untuk baris sesi Daftar Perintah SO. */
+  function sessionItemNames(session) {
+    var names = [];
+    var seen = {};
+
+    (session && session.items ? session.items : []).forEach(function (item) {
+      var name = itemName(item);
+      if (!name || seen[name]) return;
+      seen[name] = true;
+      names.push(name);
+    });
+
+    if (!names.length) return '';
+
+    var shown = names.slice(0, 2).join(', ');
+    if (names.length > 2) shown += ' +' + (names.length - 2) + ' lainnya';
+    return '<div class="muted">' + ui.esc(shown) + '</div>';
+  }
+
   /** Badge ringkas untuk baris SO yang terkena outbound pasca-hitung. */
   function runningBadge(item) {
     var qty = ui.num(item && item.Qty_Picked_Berjalan);
@@ -386,7 +448,7 @@
       return '<tr>' +
         '<td>' + ui.esc(ui.formatDateTime(log.Tanggal_Transaksi)) + '</td>' +
         '<td><strong>' + id + '</strong>' + (noDo ? '<div class="muted">No. DO: ' + ui.esc(noDo) + '</div>' : '') + '</td>' +
-        '<td><strong>' + ui.esc(log.Kode_SKU || '—') + '</strong><div class="muted">' + ui.esc(log.Nama_Barang || '') + '</div></td>' +
+        '<td><strong>' + ui.esc(log.Kode_SKU || '—') + '</strong><div class="muted">' + ui.esc(itemName(log) || '') + '</div></td>' +
         '<td>' + ui.esc(log.Nama_Outlet || '—') + '</td>' +
         '<td>' + ui.badge(log.Status_Kirim || '—') + '</td>' +
         '<td class="num"><strong>−' + ui.formatQty(log.Qty) + '</strong></td>' +
@@ -427,7 +489,7 @@
       var active = session.key === state.selectedSession;
 
       return '<tr class="opname-session-row' + (active ? ' is-active' : '') + '" data-session="' + ui.esc(session.key) + '" tabindex="0" role="button" aria-label="Buka daftar item ' + ui.esc(ui.formatDate(session.tanggalSo)) + '">' +
-        '<td><strong>' + ui.esc(ui.formatDate(session.tanggalSo)) + '</strong></td>' +
+        '<td><strong>' + ui.esc(ui.formatDate(session.tanggalSo)) + '</strong>' + sessionItemNames(session) + '</td>' +
         '<td class="num">' + ui.formatNumber(session.total) + ' item</td>' +
         '<td>' +
           '<div class="opname-session-progress">' +
@@ -497,7 +559,7 @@
       return '<tr data-row>' +
         '<td>' + idSo + '</td>' +
         '<td>' + ui.esc(item.Kode_SKU || '—') + '</td>' +
-        '<td>' + ui.esc(ui.skuLabel(item.Kode_SKU) || '—') + '</td>' +
+        '<td>' + ui.esc(itemName(item) || '—') + '</td>' +
         '<td class="num">' + ui.formatQty(item.Stok_Sistem) + '</td>' +
         '<td class="num">' + (pending ? ui.formatQty(item.Stok_Fisik) : '—') + runningBadge(item) + '</td>' +
         '<td class="num ' + diffClass(diff) + '"><strong>' + (pending ? diffLabel(diff) : '—') + '</strong></td>' +
@@ -556,6 +618,16 @@
       renderSessions();
       renderDetail();
       renderPostCountLogs();
+
+      // Cache master lokal dipakai sebagai fallback nama barang. Muat di
+      // belakang layar lalu render ulang agar kolom Nama Barang cepat terisi.
+      if (WMS.master && typeof WMS.master.load === 'function') {
+        WMS.master.load().then(function () {
+          if (gen !== loadGen || !panel) return;
+          renderSessions();
+          renderDetail();
+        }).catch(function () { /* fallback backend tetap dipakai */ });
+      }
     } catch (error) {
       if (gen !== loadGen) return;
       if (WMS.api.isAuthError(error)) return;
@@ -628,7 +700,7 @@
         var picker=modal.querySelector('#opname-sku-picker'),list=modal.querySelector('#opname-sku-list'),search=modal.querySelector('#opname-sku-search'),selectedCount=modal.querySelector('#opname-selected-count'),jenis=modal.querySelector('#opname-jenis-so'),selectAll=modal.querySelector('#opname-select-all');
         if (!picker || !list || !search || !selectedCount) return;
         var selected={};
-        function draw(){var query=String(search.value||'').trim().toLowerCase();var stocks=state.stocks.filter(function(item){return !query||[item.Kode_SKU,item.Nama_Barang].join(' ').toLowerCase().indexOf(query)!==-1;});list.innerHTML=stocks.map(function(item){var sku=String(item.Kode_SKU||'');return '<label class="opname-sku-option"><input type="checkbox" data-sku="'+ui.esc(sku)+'" '+(selected[sku]?'checked':'')+'><span><strong>'+ui.esc(sku)+'</strong><small>'+ui.esc(item.Nama_Barang||'')+'</small></span><span class="muted">Stok '+ui.formatQty(item.Stok_Aktif)+'</span></label>';}).join('')||'<div class="muted">SKU tidak ditemukan.</div>';selectedCount.textContent=Object.keys(selected).length+' SKU dipilih';}
+        function draw(){var query=String(search.value||'').trim().toLowerCase();var stocks=state.stocks.filter(function(item){return !query||[item.Kode_SKU,itemName(item)].join(' ').toLowerCase().indexOf(query)!==-1;});list.innerHTML=stocks.map(function(item){var sku=String(item.Kode_SKU||'');return '<label class="opname-sku-option"><input type="checkbox" data-sku="'+ui.esc(sku)+'" '+(selected[sku]?'checked':'')+'><span><strong>'+ui.esc(sku)+'</strong><small>'+ui.esc(itemName(item))+'</small></span><span class="muted">Stok '+ui.formatQty(item.Stok_Aktif)+'</span></label>';}).join('')||'<div class="muted">SKU tidak ditemukan.</div>';selectedCount.textContent=Object.keys(selected).length+' SKU dipilih';}
         function syncType(){selectAll.hidden=jenis.value!=='BULANAN';}
         jenis.addEventListener('change',syncType);syncType();
         modal.querySelectorAll('[name="opname-scope"]').forEach(function(radio){radio.addEventListener('change',function(){picker.hidden=radio.value!=='SELECTED'||!radio.checked;});});
@@ -655,7 +727,7 @@
     return '<div class="detail-grid">' +
       '<div class="detail"><span class="detail__label">ID SO</span><span class="detail__value">' + ui.esc(item.ID_SO) + '</span></div>' +
       '<div class="detail"><span class="detail__label">Tanggal SO</span><span class="detail__value">' + ui.esc(ui.formatDateTime(item.Tanggal_SO)) + '</span></div>' +
-      '<div class="detail detail--full"><span class="detail__label">Kode SKU</span><span class="detail__value">' + ui.esc(item.Kode_SKU || '—') + ' · ' + ui.esc(ui.skuLabel(item.Kode_SKU) || 'Nama barang tidak ditemukan pada master') + '</span></div>' +
+      '<div class="detail detail--full"><span class="detail__label">Kode SKU</span><span class="detail__value">' + ui.esc(item.Kode_SKU || '—') + ' · ' + ui.esc(itemName(item) || 'Nama barang tidak ditemukan pada master') + '</span></div>' +
       '<div class="detail"><span class="detail__label">Stok Sistem Awal</span><span class="detail__value">' + ui.formatQty(awalSistem) + ' unit</span></div>' +
       '<div class="detail"><span class="detail__label">Stok Fisik Awal</span><span class="detail__value">' + ui.formatQty(awalFisik) + ' unit</span></div>' +
       '<div class="detail"><span class="detail__label">Qty Picked Pasca-Hitung</span><span class="detail__value">' + ui.formatQty(qtyBerjalan) + ' unit</span></div>' +
@@ -896,6 +968,11 @@
     title: 'Stock Opname',
     requiresRole: 'SUPERVISOR',
     mount: mount,
+    onMaster: function () {
+      if (!panel) return;
+      renderSessions();
+      renderDetail();
+    },
     refresh: function () { return load({ silent: true }); }
   });
 })(window);
